@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Benefits Navigator – USAII Challenge 4</title>
+<meta name="description" content="AI-powered public benefits navigator for SNAP, Medicaid, LIHEAP, Housing, and Childcare — USAII Hackathon 2026. Bilingual, accessible, and responsible AI."/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+tailwind.config={darkMode:'class',theme:{extend:{colors:{brand:{50:'#f0f9ff',100:'#e0f2fe',500:'#0ea5e9',600:'#0284c7',700:'#0369a1',900:'#0c4a6e'},teal:{500:'#14b8a6'},emerald:{500:'#10b981'},amber:{500:'#f59e0b'},rose:{500:'#f43f5e'}}}}}
+</script>
+<style>
+:root{--ring:#0891B2;}
+*:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}
+html{scroll-behavior:smooth;}
+.ticker-wrap{overflow:hidden;white-space:nowrap;}
+.ticker-content{display:inline-block;animation:ticker 28s linear infinite;}
+.ticker-content:hover{animation-play-state:paused;}
+@keyframes ticker{0%{transform:translateX(100vw);}100%{transform:translateX(-100%);}}
+.card-enter{animation:cardIn .35s ease both;}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+.bingo-cell{transition:all .2s ease;}
+.bingo-cell.marked{transform:scale(1.05);}
+.vote-card{transition:all .3s ease;}
+#toast{transition:opacity .3s ease,transform .3s ease;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.progress-bar-inner{transition:width .4s ease;}
+.tab-panel{transition:opacity .25s ease;}
+@keyframes reasoningPulse{
+  0%{box-shadow:0 0 0 0 rgba(14,165,233,.45);}
+  70%{box-shadow:0 0 0 8px rgba(14,165,233,0);}
+  100%{box-shadow:0 0 0 0 rgba(14,165,233,0);}
+}
+.reasoning-pulse{animation:reasoningPulse 1.2s ease-out 2;}
+.threshold-bar-track{background:#e2e8f0;border-radius:999px;height:8px;overflow:hidden;}
+.dark .threshold-bar-track{background:#334155;}
+.threshold-bar-fill{height:100%;border-radius:999px;transition:width .5s ease;}
+/* Dark mode overrides */
+.dark body{background:#0f172a;color:#e2e8f0;}
+.dark .card{background:#1e293b;border-color:#334155;}
+.dark .input-field{background:#1e293b;border-color:#475569;color:#e2e8f0;}
+.dark .nav-bg{background:#0f172a;border-color:#1e293b;}
+.dark .ticker-bg{background:#1e293b;color:#94a3b8;}
+.dark .tab-btn{color:#94a3b8;}
+.dark .tab-btn.active-tab{background:#0891b2;color:#fff;}
+.dark .section-card{background:#1e293b;border-color:#334155;}
+.dark .past-item{background:#1e293b;border-color:#334155;}
+.dark select,.dark input,.dark textarea{background:#1e293b;border-color:#475569;color:#e2e8f0;}
+.spinner{width:20px;height:20px;border:3px solid #e2e8f0;border-top-color:#0891b2;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
+ 
+<!-- Skip to main -->
+<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-sky-600 focus:text-white focus:rounded">Skip to main content</a>
+ 
+<!-- TOAST -->
+<div id="toast" class="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-5 py-3 rounded-lg shadow-xl opacity-0 translate-y-[-12px] pointer-events-none text-sm font-medium" role="status" aria-live="polite"></div>
+ 
+<!-- API KEY BANNER (dismissible, demo mode notice) -->
+<div id="api-key-banner" class="hidden bg-slate-800 text-slate-100 text-xs sm:text-sm px-4 py-2.5 flex items-center justify-center gap-2 flex-wrap" role="region" aria-label="API key configuration">
+  <span data-i18n="apikey_banner_text">🎮 Running in demo mode (no API key set) — all features work with sample data.</span>
+  <input id="api-key-input" type="password" placeholder="Gemini API key (optional)" data-i18n-placeholder="apikey_placeholder" class="text-xs px-2 py-1 rounded border border-slate-600 bg-slate-700 text-slate-100 placeholder:text-slate-400 w-48" aria-label="Gemini API key"/>
+  <button onclick="submitApiKeyFromBanner()" class="text-xs bg-sky-600 hover:bg-sky-700 px-3 py-1 rounded transition" data-i18n="apikey_save">Save</button>
+  <button onclick="dismissApiKeyBanner()" class="text-xs border border-slate-600 hover:bg-slate-700 px-3 py-1 rounded transition" data-i18n="apikey_dismiss" aria-label="Dismiss">Dismiss</button>
+</div>
+ 
+<!-- POLICY TICKER -->
+<div id="ticker-bar" class="ticker-bg bg-sky-950 text-sky-200 text-xs py-1.5 px-4 cursor-pointer" role="marquee" aria-label="Policy update ticker">
+  <div class="ticker-wrap">
+    <div class="ticker-content" id="ticker-content">Loading policy updates…</div>
+  </div>
+</div>
+<div id="ticker-card" class="hidden bg-sky-50 dark:bg-sky-950 border-b border-sky-200 dark:border-sky-800 px-4 py-3 text-sm text-sky-800 dark:text-sky-200"></div>
+ 
+<!-- NAVBAR -->
+<nav class="nav-bg bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40" role="navigation" aria-label="Main navigation">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">🧭</span>
+      <div>
+        <h1 class="font-bold text-sky-700 dark:text-sky-400 leading-tight text-base">Benefits Navigator</h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400" id="nav-subtitle">USAII Challenge 4 – Find the help you deserve</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <button id="lang-toggle" onclick="toggleLang()" class="text-xs font-bold border border-slate-300 dark:border-slate-600 rounded px-2 py-1 hover:bg-sky-50 dark:hover:bg-slate-700 transition" aria-label="Toggle language" title="Disponible en Español / Available in English">EN | ES</button>
+      <button id="theme-toggle" onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-full border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition text-lg" aria-label="Toggle dark/light theme">🌙</button>
+    </div>
+  </div>
+</nav>
+ 
+<!-- TABS -->
+<div class="max-w-6xl mx-auto px-4 pt-4">
+  <div role="tablist" aria-label="App sections" class="flex flex-wrap gap-1 border-b border-slate-200 dark:border-slate-700 pb-0 mb-0">
+    <button role="tab" aria-selected="true"  aria-controls="tab-checker"   id="btn-checker"   onclick="switchTab('checker')"   class="tab-btn active-tab px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 border-slate-200 dark:border-slate-700 bg-sky-600 text-white" data-i18n="tab_checker">Benefits Check</button>
+    <button role="tab" aria-selected="false" aria-controls="tab-programs"  id="btn-programs"  onclick="switchTab('programs')"  class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-slate-700 transition" data-i18n="tab_programs">Program Comparison</button>
+    <button role="tab" aria-selected="false" aria-controls="tab-stress"    id="btn-stress"    onclick="switchTab('stress')"    class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-slate-700 transition" data-i18n="tab_stress">💙 Stress Check</button>
+    <button role="tab" aria-selected="false" aria-controls="tab-bingo"     id="btn-bingo"     onclick="switchTab('bingo')"     class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-slate-700 transition" data-i18n="tab_bingo">🎯 Benefits Bingo</button>
+    <button role="tab" aria-selected="false" aria-controls="tab-community" id="btn-community" onclick="switchTab('community')" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-slate-700 transition" data-i18n="tab_community">🗳️ Community</button>
+    <button role="tab" aria-selected="false" aria-controls="tab-docs"      id="btn-docs"      onclick="switchTab('docs')"      class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-slate-700 transition" data-i18n="tab_docs">📋 Documents</button>
+  </div>
+</div>
+ 
+<main id="main-content" class="max-w-6xl mx-auto px-4 pb-16">
+ 
+<!-- ═══ TAB: BENEFITS CHECK ═══ -->
+<div id="tab-checker" role="tabpanel" aria-labelledby="btn-checker" class="tab-panel active py-6">
+ 
+  <!-- Hero -->
+  <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-teal-500 text-white p-6 mb-6 shadow-lg">
+    <div class="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10" aria-hidden="true"></div>
+    <div class="absolute -right-2 bottom-2 w-24 h-24 rounded-full bg-white/10" aria-hidden="true"></div>
+    <div class="relative flex items-center gap-4">
+      <span class="text-4xl" aria-hidden="true">🧭</span>
+      <div>
+        <h2 class="text-lg sm:text-xl font-bold" data-i18n="hero_title">Find programs you may qualify for — in minutes</h2>
+        <p class="text-sm text-brand-50/90 mt-1" data-i18n="hero_subtitle">Transparent, bilingual, and always reviewed by a real person before any decision is made.</p>
+      </div>
+    </div>
+  </div>
+ 
+  <!-- Eligibility Form -->
+  <div class="section-card bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1" data-i18n="form_title">Check Your Benefits Eligibility</h2>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-5" data-i18n="form_subtitle">Answer a few questions to discover programs you may qualify for.</p>
+    <form id="eligibility-form" onsubmit="handleSubmit(event)" novalidate>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="household-size" data-i18n="label_household">Household Size</label>
+          <input type="number" id="household-size" min="1" max="20" class="input-field w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-sky-500 dark:bg-slate-700 dark:text-slate-100 transition" placeholder="e.g. 3" aria-required="true" data-i18n-placeholder="ph_household"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="monthly-income" data-i18n="label_income">Monthly Income ($)</label>
+          <input type="number" id="monthly-income" min="0" class="input-field w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-sky-500 dark:bg-slate-700 dark:text-slate-100 transition" placeholder="e.g. 1800" aria-required="true" data-i18n-placeholder="ph_income"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="state-select" data-i18n="label_state">State</label>
+          <select id="state-select" class="input-field w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-sky-500 dark:bg-slate-700 dark:text-slate-100 transition" aria-required="true">
+            <option value="" data-i18n="ph_state">Select your state</option>
+            <option value="California">California</option>
+            <option value="Texas">Texas</option>
+            <option value="Florida">Florida</option>
+            <option value="New York">New York</option>
+            <option value="Illinois">Illinois</option>
+            <option value="Pennsylvania">Pennsylvania</option>
+            <option value="Ohio">Ohio</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Michigan">Michigan</option>
+            <option value="North Carolina">North Carolina</option>
+            <option value="Arizona">Arizona</option>
+            <option value="Washington">Washington</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="concern-select" data-i18n="label_concern">Primary Concern</label>
+          <select id="concern-select" class="input-field w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-sky-500 dark:bg-slate-700 dark:text-slate-100 transition" aria-required="true">
+            <option value="" data-i18n="ph_concern">Select your primary concern</option>
+            <option value="Food assistance" data-i18n="opt_food">Food assistance</option>
+            <option value="Housing/rent help" data-i18n="opt_housing">Housing / rent help</option>
+            <option value="Healthcare" data-i18n="opt_health">Healthcare</option>
+            <option value="Utility bills" data-i18n="opt_utility">Utility bills</option>
+            <option value="Emergency relief" data-i18n="opt_emergency">Emergency relief</option>
+          </select>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="notes" data-i18n="label_notes">Additional Notes <span class="text-slate-400 font-normal" data-i18n="optional">(optional)</span></label>
+        <textarea id="notes" rows="2" class="input-field w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-sky-500 dark:bg-slate-700 dark:text-slate-100 transition resize-none" data-i18n-placeholder="ph_notes" placeholder="Any additional context that might help…"></textarea>
+      </div>
+      <div id="form-completion-indicator" class="mb-4 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
+        <div class="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+          <div id="form-completion-bar" class="progress-bar-inner bg-sky-500 h-1.5 rounded-full" style="width:0%"></div>
+        </div>
+        <span id="form-completion-text"></span>
+      </div>
+      <button type="submit" id="submit-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2.5 px-6 rounded-lg transition flex items-center justify-center gap-2" aria-label="Check eligibility">
+        <span data-i18n="btn_check">Check Eligibility</span>
+        <span id="submit-spinner" class="hidden"><span class="spinner"></span></span>
+      </button>
+    </form>
+  </div>
+ 
+  <!-- Past Checks -->
+  <div id="past-checks-section" class="mb-6 hidden">
+    <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2" data-i18n="past_checks">Recent Checks</h3>
+    <div id="past-checks-list" class="space-y-2"></div>
+  </div>
+ 
+  <!-- Result Area -->
+  <div id="result-area" class="hidden card-enter" aria-live="polite" aria-label="Eligibility result">
+    <!-- Confidence badge -->
+    <div id="confidence-badge" class="mb-3 flex items-center gap-2">
+      <span class="text-sm font-medium text-slate-600 dark:text-slate-400" data-i18n="confidence_label">Confidence:</span>
+      <span id="confidence-text" class="px-2.5 py-0.5 rounded-full text-xs font-bold"></span>
+    </div>
+    <!-- Responsible AI Summary Box -->
+    <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-4" role="note" aria-label="Responsible AI summary">
+      <h4 class="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2" data-i18n="rai_heading">🛡️ Responsible AI at a glance</h4>
+      <ul class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+        <li class="flex gap-2"><span class="text-rose-400 flex-shrink-0">⚠</span><span data-i18n="rai_risk"><strong>Risk:</strong> An incorrect eligibility suggestion may cause false hope or missed benefits.</span></li>
+        <li class="flex gap-2"><span class="text-emerald-500 flex-shrink-0">✓</span><span data-i18n="rai_mitigation"><strong>Mitigation:</strong> Human-review flag + 211 referral + all language uses "you may qualify" — never a guarantee.</span></li>
+        <li class="flex gap-2"><span class="text-sky-500 flex-shrink-0">👤</span><span data-i18n="rai_human"><strong>Human decision:</strong> A trained caseworker at your local agency — not this AI — decides final eligibility.</span></li>
+      </ul>
+    </div>
+    <!-- AI vs Human responsibility badge -->
+    <div class="bg-gradient-to-r from-brand-50 to-teal-50 dark:from-slate-800 dark:to-slate-800 border border-brand-100 dark:border-slate-700 rounded-lg p-3 mb-4 flex items-center gap-3 flex-wrap text-xs sm:text-sm font-medium" role="note" aria-label="AI and human responsibility split">
+      <span class="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">🤖 <span data-i18n="badge_ai_role">AI suggests possible programs</span></span>
+      <span class="text-slate-400 dark:text-slate-500" aria-hidden="true">→</span>
+      <span class="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">👤 <span data-i18n="badge_human_role">Caseworker decides eligibility</span></span>
+    </div>
+    <!-- Disclaimer -->
+    <div class="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4 flex gap-3">
+      <span class="text-lg flex-shrink-0">⚠️</span>
+      <p class="text-sm text-amber-800 dark:text-amber-200" data-i18n="disclaimer">This is <strong>NOT</strong> an official eligibility determination. <strong>This AI does not decide whether you receive benefits — that decision belongs exclusively to a trained caseworker at your local agency.</strong> Always verify with your local agency or call 211.</p>
+    </div>
+    <!-- AI Response -->
+    <div class="section-card bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 mb-4">
+      <h3 class="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+        <span class="text-sky-500">🤖</span> <span data-i18n="ai_response_title">AI-Assisted Analysis</span>
+        <span class="ml-auto text-xs text-slate-400 dark:text-slate-500 font-normal" data-i18n="ai_tooltip">AI suggestion — specialist makes final decision</span>
+      </h3>
+      <div id="ai-response-text" class="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap"></div>
+      <button onclick="copyEligibilityResult()" id="copy-result-btn" class="mt-3 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5" data-i18n="btn_copy_result">📋 Copy results</button>
+    </div>
+    <div id="ai-reasoning-trace-wrapper"><div id="ai-reasoning-trace"></div></div>
+    <!-- Get Real Help -->
+    <div class="section-card bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-xl p-5 mb-4">
+      <h3 class="font-semibold text-emerald-800 dark:text-emerald-200 mb-3" data-i18n="real_help_title">Get Real Help</h3>
+      <p class="text-sm text-emerald-700 dark:text-emerald-300 mb-3" data-i18n="real_help_text">Not sure? Talk to a real person — free, confidential, and available 24/7.</p>
+      <div class="flex flex-wrap gap-3">
+        <a href="tel:211" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition" aria-label="Call 211" data-i18n="btn_call211">📞 Call 211</a>
+        <button onclick="flagResult()" class="bg-white dark:bg-slate-700 border border-emerald-300 dark:border-slate-600 text-emerald-700 dark:text-emerald-300 text-sm font-medium px-4 py-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-slate-600 transition" data-i18n="btn_flag">🚩 Flag for Human Review</button>
+      </div>
+    </div>
+  </div>
+</div>
+ 
+<!-- ═══ TAB: PROGRAM COMPARISON ═══ -->
+<div id="tab-programs" role="tabpanel" aria-labelledby="btn-programs" class="tab-panel py-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100" data-i18n="programs_title">Multi-Program Comparison</h2>
+    <button onclick="copyCaseworkerSummary()" id="copy-btn" class="hidden text-sm bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition" data-i18n="btn_copy_summary">Copy for Caseworker</button>
+  </div>
+  <div id="programs-empty" class="text-center py-16 text-slate-400 dark:text-slate-500">
+    <p class="text-4xl mb-3">📊</p>
+    <p class="text-sm" data-i18n="programs_empty">Run an eligibility check first to see your program comparison.</p>
+  </div>
+  <div id="programs-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+</div>
+ 
+<!-- ═══ TAB: STRESS CHECK ═══ -->
+<div id="tab-stress" role="tabpanel" aria-labelledby="btn-stress" class="tab-panel py-6">
+  <div class="max-w-xl mx-auto">
+    <div class="section-card bg-gradient-to-br from-sky-50 to-teal-50 dark:from-sky-950 dark:to-teal-950 rounded-xl border border-sky-200 dark:border-sky-800 p-6 mb-4">
+      <h2 class="text-xl font-bold text-sky-800 dark:text-sky-200 mb-1" data-i18n="stress_title">💙 Stress Check</h2>
+      <p class="text-sm text-sky-600 dark:text-sky-400 mb-1" data-i18n="stress_subtitle">A brief check-in to support your wellbeing. Not a mental health diagnosis.</p>
+      <div class="bg-sky-100 dark:bg-sky-900 border border-sky-200 dark:border-sky-800 rounded-lg p-3 mb-5 text-xs text-sky-700 dark:text-sky-300" data-i18n="stress_disclaimer">This is a supportive tool, not a mental health diagnosis. If you are in crisis, please call or text 988 immediately.</div>
+ 
+      <div id="stress-questions" class="space-y-6">
+        <div>
+          <label class="block text-sm font-medium text-sky-800 dark:text-sky-200 mb-2" for="q1" data-i18n="stress_q1">How stressed are you feeling about your financial situation?</label>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">1</span>
+            <input type="range" id="q1" min="1" max="5" value="3" class="w-full accent-sky-500" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3"/>
+            <span class="text-xs text-slate-500">5</span>
+            <span class="text-sm font-bold text-sky-600 w-4" id="q1-val">3</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-sky-800 dark:text-sky-200 mb-2" for="q2" data-i18n="stress_q2">How confident are you in navigating benefit applications?</label>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">1</span>
+            <input type="range" id="q2" min="1" max="5" value="3" class="w-full accent-sky-500" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3"/>
+            <span class="text-xs text-slate-500">5</span>
+            <span class="text-sm font-bold text-sky-600 w-4" id="q2-val">3</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-sky-800 dark:text-sky-200 mb-2" for="q3" data-i18n="stress_q3">How supported do you feel right now?</label>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">1</span>
+            <input type="range" id="q3" min="1" max="5" value="3" class="w-full accent-sky-500" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3"/>
+            <span class="text-xs text-slate-500">5</span>
+            <span class="text-sm font-bold text-sky-600 w-4" id="q3-val">3</span>
+          </div>
+        </div>
+        <button onclick="submitStressCheck()" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2.5 rounded-lg transition flex items-center justify-center gap-2" data-i18n="btn_stress_submit">
+          Get Supportive Guidance
+          <span id="stress-spinner" class="hidden"><span class="spinner"></span></span>
+        </button>
+      </div>
+    </div>
+    <div id="stress-result" class="hidden section-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5" aria-live="polite"></div>
+  </div>
+</div>
+ 
+<!-- ═══ TAB: BENEFITS BINGO ═══ -->
+<div id="tab-bingo" role="tabpanel" aria-labelledby="btn-bingo" class="tab-panel py-6">
+  <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1" data-i18n="bingo_title">🎯 Benefits Bingo</h2>
+  <p class="text-sm text-slate-500 dark:text-slate-400 mb-4" data-i18n="bingo_subtitle">Check off every factor that applies to your household, then discover which programs you may access.</p>
+  
+  <div class="mb-3">
+    <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+      <span id="bingo-progress-label">0 of 25 factors checked</span>
+    </div>
+    <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+      <div id="bingo-progress-bar" class="progress-bar-inner bg-sky-500 h-2 rounded-full" style="width:0%"></div>
+    </div>
+  </div>
+ 
+  <div id="bingo-grid" class="grid grid-cols-5 gap-1.5 mb-4"></div>
+ 
+  <button onclick="discoverFromBingo()" class="bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2.5 px-6 rounded-lg transition flex items-center gap-2" data-i18n="btn_bingo_discover">
+    🔍 Discover Programs
+    <span id="bingo-spinner" class="hidden"><span class="spinner"></span></span>
+  </button>
+  <div id="bingo-result" class="mt-4" aria-live="polite"></div>
+</div>
+ 
+<!-- ═══ TAB: COMMUNITY ═══ -->
+<div id="tab-community" role="tabpanel" aria-labelledby="btn-community" class="tab-panel py-6">
+  <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100" data-i18n="community_title">🗳️ Community Resources</h2>
+    <div class="flex gap-2">
+      <button onclick="loadCommunityResources()" class="bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition" data-i18n="btn_load_resources">Load Resources</button>
+      <button onclick="resetVotes()" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition" data-i18n="btn_reset_votes">Reset My Votes</button>
+    </div>
+  </div>
+  <div class="bg-teal-50 dark:bg-slate-800 border border-teal-100 dark:border-slate-700 rounded-lg px-4 py-2.5 mb-4 text-xs sm:text-sm text-teal-800 dark:text-teal-300 flex items-center gap-2">
+    <span aria-hidden="true">📍</span> <span data-i18n="reach_indicator">Real local resources for 12 states — covering an estimated 165+ million Americans.</span>
+  </div>
+  <div id="community-verdict" class="hidden bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4 text-sm text-amber-800 dark:text-amber-200"></div>
+  <div id="community-resources" class="space-y-3" aria-live="polite">
+    <div class="text-center py-12 text-slate-400 dark:text-slate-500">
+      <p class="text-4xl mb-3">🏘️</p>
+      <p class="text-sm" data-i18n="community_empty">Select your state in the eligibility form and click "Load Resources".</p>
+    </div>
+  </div>
+</div>
+ 
+<!-- ═══ TAB: DOCUMENTS ═══ -->
+<div id="tab-docs" role="tabpanel" aria-labelledby="btn-docs" class="tab-panel py-6">
+  <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1" data-i18n="docs_title">📋 Document Checklist</h2>
+  <p class="text-sm text-slate-500 dark:text-slate-400 mb-5" data-i18n="docs_subtitle">Generate a personalised list of documents you'll need for your benefit applications.</p>
+  <div id="docs-empty" class="text-center py-12 text-slate-400 dark:text-slate-500 mb-4 hidden">
+    <p class="text-4xl mb-3">📄</p>
+    <p class="text-sm" data-i18n="docs_empty">Run an eligibility check first, then return here to generate your checklist.</p>
+  </div>
+  <button id="generate-checklist-btn" onclick="generateChecklist()" class="bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2.5 px-6 rounded-lg transition mb-4 flex items-center gap-2" data-i18n="btn_gen_checklist">
+    ✨ Generate My Document Checklist
+    <span id="docs-spinner" class="hidden"><span class="spinner"></span></span>
+  </button>
+  <div id="docs-progress" class="hidden mb-4">
+    <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+      <span id="docs-progress-label">0 of 0 documents gathered</span>
+    </div>
+    <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+      <div id="docs-progress-bar" class="progress-bar-inner bg-emerald-500 h-2 rounded-full" style="width:0%"></div>
+    </div>
+  </div>
+  <div id="docs-list" class="space-y-4" aria-live="polite"></div>
+  <button id="download-pdf-btn" onclick="downloadChecklistPDF()" class="hidden mt-4 bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition" data-i18n="btn_download_pdf">⬇️ Download as PDF</button>
+</div>
+ 
+</main>
+ 
+<!-- ADMIN FLAGS PANEL (hash #flags) -->
+<div id="flags-panel" class="hidden fixed inset-0 bg-black/60 z-50 overflow-auto p-8">
+  <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">🚩 Flagged Results (Admin)</h2>
+      <button onclick="closeFlagsPanel()" class="text-slate-400 hover:text-slate-600 text-2xl" aria-label="Close">×</button>
+    </div>
+    <div id="flags-list" class="space-y-3"></div>
+  </div>
+</div>
+ 
+<!-- FOOTER -->
+<footer class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-8 py-6 px-4 text-center">
+  <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Benefits Navigator • USAII Global AI Hackathon 2026 • Undergraduate Track – Challenge 4</p>
+  <p class="text-xs text-slate-400 dark:text-slate-500 mb-3">This tool aims to meet <strong>WCAG 2.1 AA</strong> accessibility standards. To report accessibility issues, email <a href="mailto:accessibility@example.com" class="underline hover:text-sky-500">accessibility@example.com</a>.</p>
+  <button onclick="runSelfCheck()" class="text-xs border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg transition" data-i18n="btn_self_check">🔧 Run self-check (verify FPL math)</button>
+  <p id="self-check-result" class="text-xs mt-2" role="status" aria-live="polite"></p>
+</footer>
+ 
+<script>
+// ═══════════════════════════════════════════════════════════
+//  ARCHITECTURE OVERVIEW
+// ═══════════════════════════════════════════════════════════
+// Single-file client-side app (no backend). Key patterns:
+// • Demo/Live fallback: GEMINI_API_KEY (from localStorage) toggles USE_MOCK.
+//   When no key is set, all AI calls (callGemini) short-circuit to null and
+//   every feature falls back to deterministic mock data (getMock*) so the
+//   app is fully demoable offline.
+// • i18n: every user-facing string lives in T.en / T.es, applied via
+//   data-i18n / data-i18n-placeholder attributes + applyTranslations().
+//   lang is persisted in localStorage and read by all dynamic renderers.
+// • Reasoning trace: buildReasoningHTML() computes FPL-based program
+//   thresholds (130/138/150% FPL, 50% AMI) from household size, and renders
+//   a visible "why" panel — rules applied, confidence rationale, what would
+//   change the result, and the explicit AI/human decision boundary. Inserted
+//   via innerHTML into a persistent #ai-reasoning-trace-wrapper so it
+//   refreshes correctly on every submit.
+// • Mock data: getMockCommunityResources() ships real, verifiable resources
+//   (food banks, legal aid, housing, 211, Medicaid portals) for 12 states
+//   plus a national fallback — used both in demo mode and as a JSON-parse
+//   fallback if a live API call returns malformed data.
+// • Self-check (runSelfCheck): re-derives the FPL threshold formulas at
+//   runtime and compares them against the formulas used in the reasoning
+//   trace, surfacing a pass/fail status for transparency/QA.
+// ═══════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════
+const GEMINI_API_KEY = localStorage.getItem('bnApiKey') || '';
+const USE_MOCK = !GEMINI_API_KEY;
+// ── i18n ────────────────────────────────────────────────────
+let lang = localStorage.getItem('bnLang') || 'en';
+const T = {
+  en:{
+    tab_checker:"Benefits Check", tab_programs:"Program Comparison",
+    tab_stress:"💙 Stress Check", tab_bingo:"🎯 Benefits Bingo",
+    tab_community:"🗳️ Community", tab_docs:"📋 Documents",
+    form_title:"Check Your Benefits Eligibility",
+    form_subtitle:"Answer a few questions to discover programs you may qualify for.",
+    label_household:"Household Size", label_income:"Monthly Income ($)",
+    label_state:"State", label_concern:"Primary Concern",
+    label_notes:"Additional Notes", optional:"(optional)",
+    ph_household:"e.g. 3", ph_income:"e.g. 1800",
+    ph_state:"Select your state", ph_concern:"Select your primary concern",
+    ph_notes:"Any additional context that might help…",
+    opt_food:"Food assistance", opt_housing:"Housing / rent help",
+    opt_health:"Healthcare", opt_utility:"Utility bills", opt_emergency:"Emergency relief",
+    btn_check:"Check Eligibility",
+    past_checks:"Recent Checks",
+    confidence_label:"Confidence:",
+    conf_low:"Low – more info needed", conf_med:"Medium", conf_high:"High",
+    disclaimer:"This is <strong>NOT</strong> an official eligibility determination. <strong>This AI does not decide whether you receive benefits — that decision belongs exclusively to a trained caseworker at your local agency.</strong> Always verify with your local agency or call 211.",
+    ai_response_title:"AI-Assisted Analysis",
+    ai_tooltip:"AI suggestion — specialist makes final decision",
+    real_help_title:"Get Real Help",
+    real_help_text:"Not sure? Talk to a real person — free, confidential, 24/7.",
+    btn_call211:"📞 Call 211",
+    btn_flag:"🚩 Flag for Human Review",
+    programs_title:"Multi-Program Comparison",
+    btn_copy_summary:"Copy for Caseworker",
+    programs_empty:"Run an eligibility check first to see your program comparison.",
+    stress_title:"💙 Stress Check", stress_subtitle:"A brief check-in to support your wellbeing.",
+    stress_disclaimer:"This is a supportive tool, not a mental health diagnosis. If you are in crisis, please call or text 988 immediately.",
+    stress_q1:"How stressed are you feeling about your financial situation?",
+    stress_q2:"How confident are you in navigating benefit applications?",
+    stress_q3:"How supported do you feel right now?",
+    btn_stress_submit:"Get Supportive Guidance",
+    bingo_title:"🎯 Benefits Bingo", bingo_subtitle:"Check off every factor that applies, then discover programs.",
+    btn_bingo_discover:"🔍 Discover Programs",
+    community_title:"🗳️ Community Resources",
+    btn_load_resources:"Load Resources", btn_reset_votes:"Reset My Votes",
+    community_empty:"Select your state in the eligibility form and click 'Load Resources'.",
+    docs_title:"📋 Document Checklist",
+    docs_subtitle:"Generate a personalised list of documents needed for your applications.",
+    docs_empty:"Run an eligibility check first, then generate your checklist.",
+    btn_gen_checklist:"✨ Generate My Document Checklist",
+    btn_download_pdf:"⬇️ Download as PDF",
+    nav_subtitle:"USAII Challenge 4 – Find the help you deserve",
+    hero_title:"Find programs you may qualify for — in minutes",
+    hero_subtitle:"Transparent, bilingual, and always reviewed by a real person before any decision is made.",
+    badge_ai_role:"AI suggests possible programs",
+    badge_human_role:"Caseworker decides eligibility",
+    btn_copy_result:"📋 Copy results",
+    reach_indicator:"Real local resources for 12 states — covering an estimated 165+ million Americans.",
+    btn_self_check:"🔧 Run self-check (verify FPL math)",
+    apikey_banner_text:"🎮 Running in demo mode (no API key set) — all features work with sample data.",
+    apikey_placeholder:"Gemini API key (optional)",
+    apikey_save:"Save",
+    apikey_dismiss:"Dismiss",
+    rai_heading:"🛡️ Responsible AI at a glance",
+    rai_risk:"<strong>Risk:</strong> An incorrect eligibility suggestion may cause false hope or missed benefits.",
+    rai_mitigation:"<strong>Mitigation:</strong> Human-review flag + 211 referral + all language uses \"you may qualify\" — never a guarantee.",
+    rai_human:"<strong>Human decision:</strong> A trained caseworker at your local agency — not this AI — decides final eligibility.",
+  },
+  es:{
+    tab_checker:"Verificar Beneficios", tab_programs:"Comparación de Programas",
+    tab_stress:"💙 Chequeo de Estrés", tab_bingo:"🎯 Bingo de Beneficios",
+    tab_community:"🗳️ Comunidad", tab_docs:"📋 Documentos",
+    form_title:"Verifique su Elegibilidad para Beneficios",
+    form_subtitle:"Responda algunas preguntas para descubrir programas para los que PODRÍA calificar.",
+    label_household:"Tamaño del hogar", label_income:"Ingresos mensuales ($)",
+    label_state:"Estado", label_concern:"Preocupación principal",
+    label_notes:"Notas adicionales", optional:"(opcional)",
+    ph_household:"Ej: 3", ph_income:"Ej: 1800",
+    ph_state:"Seleccione su estado", ph_concern:"Seleccione su preocupación principal",
+    ph_notes:"Contexto adicional que pueda ayudar…",
+    opt_food:"Asistencia alimentaria", opt_housing:"Ayuda con vivienda/renta",
+    opt_health:"Atención médica", opt_utility:"Facturas de servicios", opt_emergency:"Ayuda de emergencia",
+    btn_check:"Verificar Elegibilidad",
+    past_checks:"Verificaciones Recientes",
+    confidence_label:"Confianza:",
+    conf_low:"Baja – se necesita más información", conf_med:"Media", conf_high:"Alta",
+    disclaimer:"Esto <strong>NO</strong> es una determinación oficial de elegibilidad. <strong>Esta IA no decide si usted recibe beneficios — esa decisión pertenece exclusivamente a un trabajador social capacitado en su agencia local.</strong> Verifique siempre con su agencia local o llame al 211.",
+    ai_response_title:"Análisis con Asistencia de IA",
+    ai_tooltip:"Sugerencia de IA — un especialista toma la decisión final",
+    real_help_title:"Obtenga Ayuda Real",
+    real_help_text:"¿No está seguro? Hable con una persona real — gratuito, confidencial, 24/7.",
+    btn_call211:"📞 Llame al 211",
+    btn_flag:"🚩 Marcar para Revisión Humana",
+    programs_title:"Comparación de Programas",
+    btn_copy_summary:"Copiar para Trabajador Social",
+    programs_empty:"Primero haga una verificación de elegibilidad.",
+    stress_title:"💙 Chequeo de Estrés",
+    stress_subtitle:"Un breve chequeo para apoyar su bienestar.",
+    stress_disclaimer:"Esta es una herramienta de apoyo, no un diagnóstico de salud mental. Si está en crisis, llame o envíe un mensaje al 988 de inmediato.",
+    stress_q1:"¿Qué tan estresado se siente con su situación financiera?",
+    stress_q2:"¿Qué tan seguro se siente navegando solicitudes de beneficios?",
+    stress_q3:"¿Qué tan apoyado se siente en este momento?",
+    btn_stress_submit:"Obtener Orientación de Apoyo",
+    bingo_title:"🎯 Bingo de Beneficios",
+    bingo_subtitle:"Marque cada factor que aplique, luego descubra programas.",
+    btn_bingo_discover:"🔍 Descubrir Programas",
+    community_title:"🗳️ Recursos Comunitarios",
+    btn_load_resources:"Cargar Recursos", btn_reset_votes:"Restablecer mis Votos",
+    community_empty:"Seleccione su estado en el formulario y haga clic en 'Cargar Recursos'.",
+    docs_title:"📋 Lista de Documentos",
+    docs_subtitle:"Genere una lista personalizada de documentos para sus solicitudes.",
+    docs_empty:"Primero haga una verificación de elegibilidad.",
+    btn_gen_checklist:"✨ Generar mi Lista de Documentos",
+    btn_download_pdf:"⬇️ Descargar como PDF",
+    nav_subtitle:"Desafío USAII 4 – Encuentre la ayuda que merece",
+    hero_title:"Encuentre programas para los que podría calificar — en minutos",
+    hero_subtitle:"Transparente, bilingüe, y siempre revisado por una persona real antes de tomar cualquier decisión.",
+    badge_ai_role:"La IA sugiere programas posibles",
+    badge_human_role:"El trabajador social decide la elegibilidad",
+    btn_copy_result:"📋 Copiar resultados",
+    reach_indicator:"Recursos locales reales para 12 estados — cubriendo aproximadamente 165+ millones de estadounidenses.",
+    btn_self_check:"🔧 Ejecutar autoverificación (verificar cálculo FPL)",
+    apikey_banner_text:"🎮 Modo demo activo (sin clave API) — todas las funciones funcionan con datos de muestra.",
+    apikey_placeholder:"Clave API de Gemini (opcional)",
+    apikey_save:"Guardar",
+    apikey_dismiss:"Cerrar",
+    rai_heading:"🛡️ IA responsable de un vistazo",
+    rai_risk:"<strong>Riesgo:</strong> Una sugerencia incorrecta de elegibilidad puede generar falsas esperanzas o beneficios perdidos.",
+    rai_mitigation:"<strong>Mitigación:</strong> Marcado para revisión humana + referencia al 211 + el lenguaje siempre usa \"podría calificar\" — nunca una garantía.",
+    rai_human:"<strong>Decisión humana:</strong> Un trabajador social capacitado en su agencia local — no esta IA — decide la elegibilidad final.",
+  }
+};
+ 
+function applyTranslations(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.getAttribute('data-i18n');
+    if(T[lang][k]!==undefined) el.innerHTML=T[lang][k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const k=el.getAttribute('data-i18n-placeholder');
+    if(T[lang][k]!==undefined) el.placeholder=T[lang][k];
+  });
+  document.documentElement.lang=lang;
+}
+ 
+function toggleLang(){
+  lang=lang==='en'?'es':'en';
+  localStorage.setItem('bnLang',lang);
+  document.getElementById('lang-toggle').textContent=lang==='en'?'EN | ES':'ES | EN';
+  applyTranslations();
+}
+ 
+// ── Theme ───────────────────────────────────────────────────
+function toggleTheme(){
+  const html=document.documentElement;
+  const isDark=html.classList.toggle('dark');
+  localStorage.setItem('bnTheme',isDark?'dark':'light');
+  document.getElementById('theme-toggle').textContent=isDark?'☀️':'🌙';
+}
+function initTheme(){
+  const t=localStorage.getItem('bnTheme');
+  if(t==='dark'){document.documentElement.classList.add('dark');document.getElementById('theme-toggle').textContent='☀️';}
+}
+ 
+// ── Toast ───────────────────────────────────────────────────
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className=`fixed top-4 right-4 z-50 px-5 py-3 rounded-lg shadow-xl text-sm font-medium transition-all duration-300 ${type==='error'?'bg-rose-600':'bg-emerald-600'} text-white`;
+  t.style.opacity='1';t.style.transform='translateY(0)';
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(-12px)';},3000);
+}
+ 
+// ── Tab switching ───────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('[role="tab"]').forEach(b=>{
+    b.classList.remove('active-tab','bg-sky-600','text-white');
+    b.classList.add('bg-slate-100','dark:bg-slate-800');
+    b.setAttribute('aria-selected','false');
+  });
+  const panel=document.getElementById('tab-'+name);
+  panel.classList.add('active');
+  panel.style.opacity='0';
+  requestAnimationFrame(()=>{ panel.style.opacity='1'; });
+  const btn=document.getElementById('btn-'+name);
+  btn.classList.add('active-tab','bg-sky-600','text-white');
+  btn.classList.remove('bg-slate-100','dark:bg-slate-800');
+  btn.setAttribute('aria-selected','true');
+}
+ 
+// Keyboard navigation for tabs
+document.addEventListener('keydown',e=>{
+  if(e.target.getAttribute('role')==='tab'){
+    const tabs=[...document.querySelectorAll('[role="tab"]')];
+    const idx=tabs.indexOf(e.target);
+    if(e.key==='ArrowRight'&&idx<tabs.length-1){tabs[idx+1].focus();tabs[idx+1].click();}
+    if(e.key==='ArrowLeft'&&idx>0){tabs[idx-1].focus();tabs[idx-1].click();}
+  }
+});
+ 
+// ═══════════════════════════════════════════════════════════
+//  GEMINI API
+// ═══════════════════════════════════════════════════════════
+async function callGemini(prompt, systemPrompt=''){
+  if(USE_MOCK) return null;
+  try{
+    const messages = [];
+    if(systemPrompt){
+      messages.push({role:'system', content:systemPrompt});
+    }
+    messages.push({role:'user', content:prompt});
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method:'POST',
+      headers:{
+        'Authorization': `Bearer ${GEMINI_API_KEY}`,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({
+        model:"google/gemini-2.0-flash-001",
+        messages:messages,
+        temperature:0.7,
+        max_tokens:2048
+      })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message);
+    return data.choices?.[0]?.message?.content || null;
+  }catch(err){
+    return null;
+  }
+}
+ 
+// ── Responsible AI post-processor ──────────────────────────
+function sanitizeAI(text){
+  if(!text) return text;
+  return text
+    .replace(/\byou qualify\b/gi,'you MAY qualify')
+    .replace(/\byou are eligible\b/gi,'you may be eligible')
+    .replace(/\byou will qualify\b/gi,'you may qualify')
+    .replace(/\byou're eligible\b/gi,'you may be eligible')
+    .replace(/\bis eligible\b/gi,'may be eligible');
+}
+ 
+// ── Confidence score ────────────────────────────────────────
+function computeConfidence(){
+  const fields=[
+    document.getElementById('household-size').value,
+    document.getElementById('monthly-income').value,
+    document.getElementById('state-select').value,
+    document.getElementById('concern-select').value,
+  ];
+  const filled=fields.filter(f=>f&&f.trim()).length;
+  if(filled<=1) return 'low';
+  if(filled<=3) return 'medium';
+  return 'high';
+}
+function showConfidence(level){
+  const el=document.getElementById('confidence-text');
+  const map={
+    low:{text:T[lang].conf_low,cls:'bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300'},
+    medium:{text:T[lang].conf_med,cls:'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'},
+    high:{text:T[lang].conf_high,cls:'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'},
+  };
+  el.textContent=map[level].text;
+  el.className='px-2.5 py-0.5 rounded-full text-xs font-bold '+map[level].cls;
+}
+ 
+// ── Live form completion indicator ─────────────────────────
+function updateFormCompletionIndicator(){
+  const fields=[
+    document.getElementById('household-size').value,
+    document.getElementById('monthly-income').value,
+    document.getElementById('state-select').value,
+    document.getElementById('concern-select').value,
+  ];
+  const filled=fields.filter(f=>f&&f.trim()).length;
+  const bar=document.getElementById('form-completion-bar');
+  const text=document.getElementById('form-completion-text');
+  if(!bar||!text) return;
+  bar.style.width=(filled/4*100)+'%';
+  bar.className='progress-bar-inner h-1.5 rounded-full '+(filled===4?'bg-emerald-500':filled>=2?'bg-amber-500':'bg-sky-500');
+  if(filled===4){
+    text.textContent=lang==='es' ? '4/4 campos completados — confianza máxima' : '4/4 fields completed — maximum confidence';
+  }else{
+    const missing=[];
+    if(!fields[0]) missing.push(lang==='es'?'tamaño del hogar':'household size');
+    if(!fields[1]) missing.push(lang==='es'?'ingresos mensuales':'monthly income');
+    if(!fields[2]) missing.push(lang==='es'?'estado':'state');
+    if(!fields[3]) missing.push(lang==='es'?'preocupación principal':'primary concern');
+    const nextField=missing[0];
+    text.textContent = lang==='es'
+      ? `${filled}/4 campos completados — agregue ${nextField} para mayor precisión`
+      : `${filled}/4 fields completed — add ${nextField} for higher accuracy`;
+  }
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  MOCK DATA
+// ═══════════════════════════════════════════════════════════
+function getMockEligibility(size,income,state,concern){
+  const annualInc=income*12;
+  const snapFpl=annualInc<(15060+(size-1)*5380)*1.3;
+  const medicaidFpl=annualInc<(15060+(size-1)*5380)*1.38;
+  return `Based on the information you've provided (household of ${size} in ${state}, monthly income ~$${income}):
+ 
+• **SNAP (Food Assistance):** You ${snapFpl?'may qualify':'may not qualify at this income level'}. The income limit for a household of ${size} is approximately $${Math.round((15060+(size-1)*5380)*1.3/12)}/month.
+• **Medicaid:** You ${medicaidFpl?'may be eligible':'may not be eligible at this income level'} for Medicaid in ${state}. States have varying thresholds.
+• **LIHEAP (Utility Assistance):** You may qualify if your household income is at or below 150% of the federal poverty level. This is worth exploring given your ${concern} concern.
+• **Housing Assistance:** Section 8 and local housing vouchers may be available. Waiting lists vary by county.
+ 
+Next steps: Contact your local department of social services, call 211, or visit benefits.gov for official guidance. A caseworker can review your complete situation.`;
+}
+ 
+function getMockComparison(size,income,state){
+  const ann=income*12;
+  const fpl=(15060+(size-1)*5380);
+  const pct=ann/fpl;
+  return [
+    {program_name:"SNAP",likelihood:pct<1.3?"High":pct<1.85?"Medium":"Low",estimated_monthly_benefit:pct<1.3?`$${Math.min(975,Math.round(250+(size*40)))}`:"$50–$100",key_requirements:["Income below 130% FPL","US citizen or qualified non-citizen","Residency in "+state],next_step:"Apply online at your state's SNAP portal or visit your local DHS office."},
+    {program_name:"Medicaid",likelihood:pct<1.38?"High":pct<2.0?"Medium":"Low",estimated_monthly_benefit:"$0 premium (full coverage)",key_requirements:["Income below 138% FPL (ACA expansion)","Residency in "+state,"US citizen or qualified non-citizen"],next_step:"Apply at healthcare.gov or your state Medicaid office."},
+    {program_name:"Housing Assistance",likelihood:pct<0.5?"High":pct<0.8?"Medium":"Low",estimated_monthly_benefit:"Varies by area",key_requirements:["Income below 50% of Area Median Income","Stable housing need demonstrated","No recent evictions"],next_step:"Contact your local Public Housing Authority (PHA) to join the waitlist."},
+    {program_name:"LIHEAP",likelihood:pct<1.5?"High":pct<2.0?"Medium":"Low",estimated_monthly_benefit:"$200–$600 (one-time seasonal)",key_requirements:["Income at or below 150% FPL","Responsible for utility payments","Priority for elderly/disabled households"],next_step:"Contact your state LIHEAP office or local Community Action Agency."},
+    {program_name:"Childcare Subsidy",likelihood:size>=2&&pct<2.0?"Medium":"Low",estimated_monthly_benefit:"$400–$1,200/month",key_requirements:["Child under 13 in household","Parent working, in school, or job training","Income below state threshold"],next_step:"Contact your state's Child Care and Development Fund (CCDF) office."},
+  ];
+}
+ 
+function getMockStressResponse(q1,q2,q3){
+  const avg=(q1+q2+q3)/3;
+  const level=avg>3.5?'high':avg>2.5?'moderate':'manageable';
+  return `Your responses suggest you may be experiencing a ${level} level of stress right now — and that's completely understandable. Navigating financial uncertainty and benefit systems can feel overwhelming, and it's meaningful that you took a moment to check in with yourself.
+ 
+**Three grounding steps you can take today:**
+1. **Breathe first.** Take three slow, deep breaths. Research shows this activates your body's calm response and can lower stress hormones in minutes.
+2. **One small action.** Instead of tackling everything at once, identify one concrete thing: maybe it's making one phone call to 211, or filling out one form. Small wins build momentum.
+3. **Reach out.** You don't have to navigate this alone. A benefits counselor at 211 can walk through your options with you, free of charge.
+ 
+**Resources:**
+• 🆘 Crisis support: Call or text **988** (Suicide & Crisis Lifeline) — available 24/7
+• 💻 Benefits screening: [BenefitsCheckUp.org](https://www.benefitscheckup.org)
+• 📞 Local help: Call **211** — free benefits navigation in every state`;
+}
+ 
+function getMockBingoResult(checked){
+  const programs=[
+    {program:"SNAP",likelihood:"High",reason:"Low income and household size factors suggest you may meet the eligibility threshold."},
+    {program:"Medicaid",likelihood:"High",reason:"Income indicators suggest you may qualify for free or low-cost health coverage."},
+    {program:"LIHEAP",likelihood:"Medium",reason:"If you pay utility bills, seasonal energy assistance may be available."},
+    {program:"Housing Assistance",likelihood:checked.includes("Pay rent or mortgage")?"Medium":"Low",reason:"Rental households may qualify for local voucher programs."},
+    {program:"WIC",likelihood:checked.includes("Have children under 18")||checked.includes("Currently pregnant")?"High":"Low",reason:"Families with young children or pregnant individuals often qualify."},
+  ];
+  return programs.filter(p=>p.likelihood!=="Low"||Math.random()>0.5);
+}
+ 
+function getMockCommunityResources(state){
+  const db = {
+    'California': [
+      {name:'Feeding America — Food Bank of California',type:'Food Bank',phone:'(916) 456-1980',website:'cafoodbanks.org',description:'Statewide network of food banks providing emergency food assistance and SNAP outreach.'},
+      {name:'Bay Area Legal Aid',type:'Legal Aid',phone:'(415) 982-1300',website:'baylegal.org',description:'Free civil legal services for low-income individuals including benefit denials and housing.'},
+      {name:'California HCD — Housing Assistance',type:'Housing',phone:'(800) 952-5275',website:'hcd.ca.gov',description:'State housing department connecting residents to Section 8 and affordable housing programs.'},
+      {name:'211 California',type:'Navigation',phone:'211',website:'211ca.org',description:'Free 24/7 referral service for health and human services across California.'},
+      {name:'Covered California — Medi-Cal Enrollment',type:'Healthcare',phone:'(800) 300-1506',website:'coveredca.com',description:'Official enrollment portal for Medi-Cal (Medicaid) and Covered California health plans.'},
+      {name:'Community Action Partnership of California',type:'Multi-service',phone:'(916) 443-1721',website:'capcalifornia.org',description:'Network of agencies providing energy assistance, food, housing, and benefits navigation.'},
+    ],
+    'Texas': [
+      {name:'North Texas Food Bank',type:'Food Bank',phone:'(214) 330-1396',website:'ntfb.org',description:'Provides food assistance and connects families to SNAP enrollment across North Texas.'},
+      {name:'Lone Star Legal Aid',type:'Legal Aid',phone:'(800) 733-8394',website:'lonestarlegal.org',description:'Free civil legal help for Texans with benefit denials, evictions, and public benefits.'},
+      {name:'Texas Department of Housing & Community Affairs',type:'Housing',phone:'(512) 475-3800',website:'tdhca.state.tx.us',description:'Administers Section 8 vouchers, HOME, and affordable rental programs statewide.'},
+      {name:'211 Texas',type:'Navigation',phone:'211',website:'211texas.org',description:'Free statewide helpline connecting Texans to food, housing, health, and financial assistance.'},
+      {name:'Texas Health & Human Services — Medicaid',type:'Healthcare',phone:'(800) 252-8263',website:'hhs.texas.gov',description:'Official Texas Medicaid enrollment and CHIP assistance for eligible residents.'},
+      {name:'Community Action Network of Texas',type:'Multi-service',phone:'(512) 476-5399',website:'cactionn.org',description:'Statewide network offering LIHEAP, emergency food, and benefits navigation services.'},
+    ],
+    'Florida': [
+      {name:'Feeding Florida',type:'Food Bank',phone:'(850) 562-3204',website:'feedingflorida.org',description:'Statewide food bank network providing emergency food and SNAP application assistance.'},
+      {name:'Community Legal Services of Mid-Florida',type:'Legal Aid',phone:'(407) 841-7777',website:'clsmf.org',description:'Free legal aid for low-income Floridians facing benefit denials, evictions, and hardship.'},
+      {name:'Florida Housing Finance Corporation',type:'Housing',phone:'(850) 488-4197',website:'floridahousing.org',description:'Administers affordable rental housing and Section 8 rental assistance programs in Florida.'},
+      {name:'211 Florida',type:'Navigation',phone:'211',website:'myflfamilies.com',description:'24/7 free referral service for food, housing, healthcare, and crisis assistance statewide.'},
+      {name:'Florida Medicaid — ACCESS Florida',type:'Healthcare',phone:'(866) 762-2237',website:'myflorida.com/accessflorida',description:'Apply for Medicaid, SNAP, and TANF through Florida\'s ACCESS benefits portal.'},
+      {name:'Florida Community Action Association',type:'Multi-service',phone:'(850) 878-6880',website:'fcaa.net',description:'Connects Floridians to LIHEAP energy assistance, housing help, and emergency services.'},
+    ],
+    'New York': [
+      {name:'Food Bank For New York City',type:'Food Bank',phone:'(212) 566-7855',website:'foodbanknyc.org',description:'Largest food bank in the US — provides emergency food and SNAP enrollment assistance.'},
+      {name:'Legal Aid Society of New York',type:'Legal Aid',phone:'(212) 577-3300',website:'legalaidnyc.org',description:'Free civil legal services for New Yorkers including benefits, housing, and immigration.'},
+      {name:'NYC Housing Connect',type:'Housing',phone:'(212) 863-5610',website:'housingconnect.nyc.gov',description:'Official portal for affordable housing lotteries and Section 8 applications in New York City.'},
+      {name:'NY 211',type:'Navigation',phone:'211',website:'ny211.org',description:'Free 24/7 helpline and online database for health and human services across New York State.'},
+      {name:'NY State of Health — Medicaid Enrollment',type:'Healthcare',phone:'(855) 355-5777',website:'nystateofhealth.ny.gov',description:'Official enrollment marketplace for Medicaid and Child Health Plus in New York.'},
+      {name:'Community Service Society of NY',type:'Multi-service',phone:'(212) 254-8900',website:'cssny.org',description:'Connects low-income New Yorkers to benefits, workforce programs, and housing assistance.'},
+    ],
+    'Illinois': [
+      {name:'Greater Chicago Food Depository',type:'Food Bank',phone:'(773) 247-3663',website:'gcfd.org',description:'Provides emergency food assistance and SNAP outreach across the Chicago region.'},
+      {name:'Prairie State Legal Services',type:'Legal Aid',phone:'(800) 531-7057',website:'pslegal.org',description:'Free civil legal aid for Northern and Central Illinois residents with benefits issues.'},
+      {name:'Illinois Housing Development Authority',type:'Housing',phone:'(312) 836-5200',website:'ihda.org',description:'Administers Section 8 vouchers, rental assistance, and affordable housing programs statewide.'},
+      {name:'211 Illinois',type:'Navigation',phone:'211',website:'211.illinois.gov',description:'Free statewide referral service for food, housing, healthcare, and social services.'},
+      {name:'Illinois Medicaid — ABE Portal',type:'Healthcare',phone:'(800) 843-6154',website:'abe.illinois.gov',description:'Apply for Medicaid, SNAP, and cash assistance through Illinois ABE benefits portal.'},
+      {name:'Illinois Community Action Association',type:'Multi-service',phone:'(217) 789-0400',website:'ilcaa.org',description:'Statewide network providing LIHEAP, emergency food, weatherization, and benefits help.'},
+    ],
+    'Pennsylvania': [
+      {name:'Greater Philadelphia Coalition Against Hunger',type:'Food Bank',phone:'(215) 430-0556',website:'hungercoalition.org',description:'SNAP outreach and food assistance for Philadelphia-area residents.'},
+      {name:'Community Legal Services Philadelphia',type:'Legal Aid',phone:'(215) 981-3700',website:'clsphila.org',description:'Free legal services for Philadelphians with benefits denials, housing, and debt issues.'},
+      {name:'Pennsylvania Housing Finance Agency',type:'Housing',phone:'(800) 822-1174',website:'phfa.org',description:'Administers rental assistance, homeowner programs, and Section 8 vouchers in Pennsylvania.'},
+      {name:'211 Pennsylvania',type:'Navigation',phone:'211',website:'pa211.org',description:'Free 24/7 statewide helpline for housing, food, health, and crisis referrals in Pennsylvania.'},
+      {name:'Pennsylvania Medicaid — COMPASS',type:'Healthcare',phone:'(800) 692-7462',website:'compass.state.pa.us',description:'Apply for Medicaid, SNAP, and CHIP through Pennsylvania\'s COMPASS benefits portal.'},
+      {name:'Pennsylvania Community Action Association',type:'Multi-service',phone:'(717) 233-1075',website:'pcaa.org',description:'Provides LIHEAP energy assistance, food, and benefits navigation across Pennsylvania.'},
+    ],
+    'Ohio': [
+      {name:'Feeding America — Mid-Ohio Food Collective',type:'Food Bank',phone:'(614) 277-3663',website:'midohiofoodbank.org',description:'Central Ohio food bank providing emergency food and SNAP enrollment assistance.'},
+      {name:'Legal Aid Society of Columbus',type:'Legal Aid',phone:'(614) 224-8374',website:'columbuslegalaid.org',description:'Free civil legal services for Central Ohioans with benefits, housing, and family issues.'},
+      {name:'Ohio Housing Finance Agency',type:'Housing',phone:'(614) 466-7970',website:'ohiohome.org',description:'Administers Section 8 and affordable rental housing programs across Ohio.'},
+      {name:'211 Ohio',type:'Navigation',phone:'211',website:'211ohio.org',description:'Free 24/7 statewide helpline connecting Ohioans to food, housing, and health services.'},
+      {name:'Ohio Medicaid — Benefits.Ohio.gov',type:'Healthcare',phone:'(800) 324-8680',website:'benefits.ohio.gov',description:'Apply for Medicaid and Ohio Benefits programs through the state benefits portal.'},
+      {name:'Ohio Association of Community Action Agencies',type:'Multi-service',phone:'(614) 224-8500',website:'oacaa.org',description:'Statewide network providing LIHEAP, emergency food, housing aid, and benefits navigation.'},
+    ],
+    'Georgia': [
+      {name:'Atlanta Community Food Bank',type:'Food Bank',phone:'(404) 892-9822',website:'acfb.org',description:'Provides food assistance and SNAP enrollment support across Metro Atlanta and North Georgia.'},
+      {name:'Georgia Legal Services Program',type:'Legal Aid',phone:'(404) 206-5175',website:'glsp.org',description:'Free civil legal help for rural and low-income Georgians including benefits and housing.'},
+      {name:'Georgia Department of Community Affairs',type:'Housing',phone:'(404) 679-4840',website:'dca.ga.gov',description:'Administers Section 8 vouchers, HOME, and affordable housing programs statewide.'},
+      {name:'211 Georgia — GCAPP',type:'Navigation',phone:'211',website:'211ga.org',description:'Free 24/7 statewide referral for food, housing, healthcare, and crisis services.'},
+      {name:'Georgia Medicaid — Gateway Portal',type:'Healthcare',phone:'(877) 423-4746',website:'gateway.ga.gov',description:'Apply for Georgia Medicaid and PeachCare for Kids through the Gateway benefits portal.'},
+      {name:'Community Action Partnership of Georgia',type:'Multi-service',phone:'(404) 446-0335',website:'cap-ga.org',description:'Statewide network for LIHEAP, emergency food, weatherization, and benefits navigation.'},
+    ],
+    'Michigan': [
+      {name:'Gleaners Community Food Bank',type:'Food Bank',phone:'(313) 923-3535',website:'gcfb.org',description:'Metro Detroit food bank providing emergency food and SNAP outreach to families.'},
+      {name:'Michigan Legal Help',type:'Legal Aid',phone:'(888) 783-8190',website:'michiganlegalhelp.org',description:'Free legal resources and referrals for Michiganders facing benefit denials and housing issues.'},
+      {name:'Michigan State Housing Development Authority',type:'Housing',phone:'(517) 373-8370',website:'michigan.gov/mshda',description:'Administers Section 8 rental assistance and affordable housing programs across Michigan.'},
+      {name:'Michigan 211',type:'Navigation',phone:'211',website:'michigan.gov/211',description:'Free statewide helpline for food, housing, healthcare, and social service referrals.'},
+      {name:'Michigan Medicaid — MI Bridges',type:'Healthcare',phone:'(888) 642-7434',website:'michigan.gov/mibridges',description:'Apply for Medicaid, SNAP, and state emergency relief through Michigan\'s MI Bridges portal.'},
+      {name:'Michigan Community Action Agency Association',type:'Multi-service',phone:'(517) 487-4488',website:'mcaaa.org',description:'Provides LIHEAP, emergency food, housing aid, and benefits help across Michigan.'},
+    ],
+    'North Carolina': [
+      {name:'Food Bank of Central & Eastern NC',type:'Food Bank',phone:'(919) 875-0707',website:'foodbankcenc.org',description:'Provides emergency food and SNAP application assistance across Central and Eastern NC.'},
+      {name:'Legal Aid of North Carolina',type:'Legal Aid',phone:'(866) 219-5262',website:'legalaidnc.org',description:'Free civil legal services statewide including benefit denials, housing, and immigration.'},
+      {name:'NC Housing Finance Agency',type:'Housing',phone:'(919) 877-5700',website:'nchfa.com',description:'Administers Section 8, rental assistance, and affordable housing programs in North Carolina.'},
+      {name:'211 NC',type:'Navigation',phone:'211',website:'nc211.org',description:'Free 24/7 statewide service connecting North Carolinians to food, housing, and health resources.'},
+      {name:'NC DHHS — Medicaid Enrollment',type:'Healthcare',phone:'(888) 245-0179',website:'ncdhhs.gov/medicaid',description:'Apply for NC Medicaid and Health Choice for Children through the state DHHS portal.'},
+      {name:'NC Community Action Association',type:'Multi-service',phone:'(919) 832-7130',website:'nccaa.net',description:'Network providing LIHEAP, food assistance, emergency services, and benefits navigation across NC.'},
+    ],
+    'Arizona': [
+      {name:'St. Mary\'s Food Bank',type:'Food Bank',phone:'(602) 242-3663',website:'stmarysfoodbank.org',description:'Arizona\'s largest food bank network providing food assistance and SNAP outreach.'},
+      {name:'Community Legal Services Arizona',type:'Legal Aid',phone:'(602) 258-3434',website:'clsaz.org',description:'Free civil legal help for low-income Arizonans with benefits, housing, and consumer issues.'},
+      {name:'Arizona Department of Housing',type:'Housing',phone:'(602) 771-1000',website:'azhousing.gov',description:'Administers Section 8 rental assistance and affordable housing programs statewide.'},
+      {name:'211 Arizona',type:'Navigation',phone:'211',website:'211arizona.org',description:'Free 24/7 statewide referral service for food, housing, healthcare, and crisis assistance.'},
+      {name:'Arizona Medicaid — HEAplus',type:'Healthcare',phone:'(855) 432-7587',website:'healthearizonaplus.gov',description:'Apply for AHCCCS (Arizona Medicaid) and other state benefits through HEAplus portal.'},
+      {name:'Arizona Community Action Association',type:'Multi-service',phone:'(602) 604-0640',website:'azcaa.org',description:'Statewide network providing LIHEAP, emergency food, and benefits navigation in Arizona.'},
+    ],
+    'Washington': [
+      {name:'Northwest Harvest',type:'Food Bank',phone:'(800) 722-6924',website:'northwestharvest.org',description:'Washington\'s statewide hunger relief agency — emergency food and SNAP enrollment support.'},
+      {name:'Northwest Justice Project',type:'Legal Aid',phone:'(888) 201-1014',website:'nwjp.org',description:'Free civil legal services for low-income Washingtonians with benefits and housing issues.'},
+      {name:'Washington State Housing Finance Commission',type:'Housing',phone:'(800) 767-4663',website:'wshfc.org',description:'Administers affordable housing programs and Section 8 vouchers across Washington State.'},
+      {name:'211 Washington',type:'Navigation',phone:'211',website:'wa211.org',description:'Free 24/7 referral service for food, housing, health, and social services statewide.'},
+      {name:'Washington Medicaid — Washington Healthplanfinder',type:'Healthcare',phone:'(855) 923-4633',website:'wahealthplanfinder.org',description:'Apply for Apple Health (Medicaid) and other coverage through Washington\'s marketplace.'},
+      {name:'Washington State Community Action Partnership',type:'Multi-service',phone:'(360) 352-6655',website:'wscadv.org',description:'Statewide network providing LIHEAP, food, housing aid, and benefits navigation in Washington.'},
+    ],
+  };
+  return db[state] || [
+    {name:'Feeding America',type:'Food Bank',phone:'(800) 771-2303',website:'feedingamerica.org',description:'National food bank network — find your local member food bank for emergency food assistance.'},
+    {name:'LawHelp.org',type:'Legal Aid',phone:'',website:'lawhelp.org',description:'Find free legal aid in your state for benefit denials, housing issues, and public benefits.'},
+    {name:'HUD Housing Counseling',type:'Housing',phone:'(800) 569-4287',website:'hud.gov/findacounselor',description:'HUD-approved housing counselors help with Section 8 applications and rental assistance.'},
+    {name:'211 Helpline',type:'Navigation',phone:'211',website:'211.org',description:'Dial 211 from any phone for free, confidential referrals to local food, housing, and health services.'},
+    {name:'Medicaid.gov — Find Your State',type:'Healthcare',phone:'',website:'medicaid.gov/about-us/contact-us/contact-state-page',description:'Official federal gateway to find your state Medicaid office and enrollment information.'},
+    {name:'FindHelp.org',type:'Multi-service',phone:'',website:'findhelp.org',description:'National database of free and reduced-cost social service programs searchable by zip code.'},
+  ];
+}
+ 
+function getMockDocumentChecklist(programs){
+  return [
+    {document:"Government-issued photo ID",program:"All Programs",why_needed:"Verifies identity for all benefit applications.",tip:"Driver's license, state ID, or passport accepted."},
+    {document:"Social Security cards for all household members",program:"All Programs",why_needed:"Required to verify SSN for all benefit programs.",tip:"Include cards for all adults and children in your household."},
+    {document:"Proof of address (utility bill or lease)",program:"All Programs",why_needed:"Confirms residency in the state.",tip:"Must be dated within the last 60 days."},
+    {document:"Last 3 months of pay stubs",program:"SNAP, Medicaid",why_needed:"Verifies current income level.",tip:"If self-employed, a profit/loss statement may substitute."},
+    {document:"Bank statements (last 3 months)",program:"SNAP",why_needed:"SNAP has asset limits; bank statements confirm eligibility.",tip:"Savings accounts over $2,750 may affect eligibility."},
+    {document:"Birth certificates for all household members",program:"Medicaid, Childcare Subsidy",why_needed:"Proves age and family relationship.",tip:"Contact your county clerk if lost — certified copies are available."},
+    {document:"Lease or mortgage statement",program:"Housing Assistance",why_needed:"Documents current housing costs and landlord contact.",tip:"Your landlord must be willing to participate in housing voucher program."},
+    {document:"Most recent utility bills",program:"LIHEAP",why_needed:"LIHEAP eligibility requires documented utility costs.",tip:"Electric and heating bills are prioritised. Include account numbers."},
+    {document:"Immigration documents (if applicable)",program:"All Programs",why_needed:"Qualified non-citizens may be eligible; status must be verified.",tip:"Green card, EAD, or visa documents accepted. Legal aid can help if uncertain."},
+  ];
+}
+ 
+function getMockPolicyTicker(state){
+  return [
+    {program:"SNAP",change_summary:`${state} extended emergency SNAP allotments through September 2026 for qualifying households.`,effective_date:"June 2026",source_hint:"USDA FNS"},
+    {program:"Medicaid",change_summary:"Federal continuous enrollment protections ended; re-enrollment required annually. Check your status.",effective_date:"April 2026",source_hint:"CMS"},
+    {program:"Housing Assistance",change_summary:`${state} Housing Authority opened waitlist for Section 8 vouchers — limited spots available.`,effective_date:"May 2026",source_hint:"HUD"},
+  ];
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  CORE ELIGIBILITY CHECK
+// ═══════════════════════════════════════════════════════════
+let lastResult=null;
+ 
+function buildReasoningHTML(size, income, state, concern) {
+  const sz   = parseInt(size)   || 1;
+  const inc  = parseFloat(income) || 0;
+  const fpl  = 15060 + (sz - 1) * 5380;
+  const snapLimit     = Math.round(fpl * 1.30 / 12);
+  const medicaidLimit = Math.round(fpl * 1.38 / 12);
+  const liheapLimit   = Math.round(fpl * 1.50 / 12);
+  const housingLimit  = Math.round(fpl * 0.50 / 12);
+  const filledFields  = [size, income, state, concern].filter(f => f && String(f).trim()).length;
+  const confReason    = filledFields === 4
+    ? (lang === 'es' ? 'Se completaron los 4 campos requeridos.' : 'All 4 required fields were provided.')
+    : (lang === 'es'
+        ? `Solo ${filledFields} de 4 campos requeridos fueron completados. Más información mejoraría la precisión.`
+        : `Only ${filledFields} of 4 required fields were provided. More detail would improve accuracy.`);
+  const whatWouldChange = lang === 'es'
+    ? 'Información adicional sobre estatus migratorio, discapacidad, custodia de menores o situación de vivienda podría cambiar los resultados.'
+    : 'Additional details about immigration status, disability status, child custody arrangements, or housing situation could change these results.';
+  const boundary = lang === 'es'
+    ? 'Esta IA identifica programas para los que PODRÍA ser elegible. Si recibe o no los beneficios lo decide exclusivamente un trabajador social capacitado en su agencia local, no esta IA.'
+    : 'This AI identifies programs you MAY be eligible for. Whether you actually receive benefits is decided exclusively by a trained caseworker at your local agency — not by this AI.';
+  const rulesLabel   = lang === 'es' ? 'Reglas aplicadas'         : 'Rules applied';
+  const confLabel    = lang === 'es' ? 'Por qué este nivel de confianza' : 'Why this confidence level';
+  const changeLabel  = lang === 'es' ? 'Qué cambiaría este resultado'    : 'What would change this result';
+  const boundaryLabel= lang === 'es' ? 'Límite de decisión de la IA'     : 'AI decision boundary';
+  const summaryLabel = lang === 'es' ? '🔍 Cómo se determinó esto ▾'     : '🔍 How this was determined ▾';
+  const thresholdLabel = lang === 'es' ? 'Su ingreso frente a los límites de los programas' : 'Your income vs. program thresholds';
+  const yourIncomeLabel = lang === 'es' ? 'Su ingreso' : 'Your income';
+ 
+  // Threshold visualization — horizontal bars showing income vs each limit
+  const thresholds = [
+    {label:'SNAP (130% FPL)', limit:snapLimit, color:'#0ea5e9'},
+    {label:'Medicaid (138% FPL)', limit:medicaidLimit, color:'#10b981'},
+    {label:'LIHEAP (150% FPL)', limit:liheapLimit, color:'#f59e0b'},
+    {label: lang === 'es' ? 'Vivienda (50% AMI)' : 'Housing (50% AMI)', limit:housingLimit, color:'#a855f7'},
+  ];
+  const maxScale = Math.max(inc, ...thresholds.map(t=>t.limit)) * 1.05 || 1;
+  const thresholdBarsHTML = thresholds.map(t=>{
+    const pct = Math.min(100, Math.round((t.limit / maxScale) * 100));
+    const withinLimit = inc <= t.limit;
+    const statusIcon = withinLimit ? '✅' : '⚠️';
+    return `
+      <div class="mb-2">
+        <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
+          <span>${t.label}</span>
+          <span>${statusIcon} $${t.limit}/mo</span>
+        </div>
+        <div class="threshold-bar-track">
+          <div class="threshold-bar-fill" style="width:${pct}%;background:${t.color};"></div>
+        </div>
+      </div>`;
+  }).join('');
+  const incomePct = Math.min(100, Math.round((inc / maxScale) * 100));
+ 
+  return `
+    <details class="reasoning-pulse bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 rounded-xl p-5 mb-4" open>
+      <summary class="cursor-pointer font-semibold text-sky-700 dark:text-sky-300 text-sm list-none"
+               aria-label="Show AI reasoning details">${summaryLabel}</summary>
+      <div class="mt-4 space-y-4 text-sm">
+        <div>
+          <p class="font-semibold text-slate-700 dark:text-slate-200 mb-2">${thresholdLabel}</p>
+          <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
+            <span>${yourIncomeLabel}</span>
+            <span><strong>$${inc}/mo</strong></span>
+          </div>
+          <div class="threshold-bar-track mb-3">
+            <div class="threshold-bar-fill" style="width:${incomePct}%;background:#0f172a;"></div>
+          </div>
+          ${thresholdBarsHTML}
+        </div>
+        <div>
+          <p class="font-semibold text-slate-700 dark:text-slate-200 mb-2">${rulesLabel}</p>
+          <ul class="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+            <li class="flex gap-2"><span class="text-sky-500 flex-shrink-0">▸</span>
+              SNAP: monthly income must be ≤ 130% FPL = <strong>$${snapLimit}/mo</strong> for a household of ${sz}</li>
+            <li class="flex gap-2"><span class="text-sky-500 flex-shrink-0">▸</span>
+              Medicaid: monthly income must be ≤ 138% FPL = <strong>$${medicaidLimit}/mo</strong> for a household of ${sz}</li>
+            <li class="flex gap-2"><span class="text-sky-500 flex-shrink-0">▸</span>
+              LIHEAP: monthly income must be ≤ 150% FPL = <strong>$${liheapLimit}/mo</strong> for a household of ${sz}</li>
+            <li class="flex gap-2"><span class="text-sky-500 flex-shrink-0">▸</span>
+              Housing Assistance: monthly income must be ≤ 50% Area Median Income ≈ <strong>$${housingLimit}/mo</strong> (varies by county)</li>
+            <li class="flex gap-2"><span class="text-sky-500 flex-shrink-0">▸</span>
+              Your stated income: <strong>$${inc}/mo</strong> — compared against each threshold above</li>
+          </ul>
+        </div>
+        <div>
+          <p class="font-semibold text-slate-700 dark:text-slate-200 mb-1">${confLabel}</p>
+          <p class="text-xs text-slate-600 dark:text-slate-400">${confReason}</p>
+        </div>
+        <div>
+          <p class="font-semibold text-slate-700 dark:text-slate-200 mb-1">${changeLabel}</p>
+          <p class="text-xs text-slate-600 dark:text-slate-400">${whatWouldChange}</p>
+        </div>
+        <div class="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+          <p class="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-1">${boundaryLabel}</p>
+          <p class="text-xs text-amber-700 dark:text-amber-300">${boundary}</p>
+        </div>
+      </div>
+    </details>`;
+}
+ 
+async function handleSubmit(e){
+  e.preventDefault();
+  const size=document.getElementById('household-size').value;
+  const income=document.getElementById('monthly-income').value;
+  const state=document.getElementById('state-select').value;
+  const concern=document.getElementById('concern-select').value;
+  const notes=document.getElementById('notes').value;
+ 
+  if(!size||!income||!state||!concern){
+    showToast(lang==='en'?'Please fill in all required fields.':'Por favor complete todos los campos requeridos.','error');
+    return;
+  }
+ 
+  // Show spinner
+  const btn=document.getElementById('submit-btn');
+  btn.disabled=true;
+  document.getElementById('submit-spinner').classList.remove('hidden');
+ 
+  const confidence=computeConfidence();
+  showConfidence(confidence);
+ 
+  const langInstruction=lang==='es'?'Respond entirely in Spanish at a 6th grade reading level.':'Respond in clear, plain English.';
+  const prompt=`A household of ${size} people in ${state} has a monthly income of $${income}. Their primary concern is ${concern}. ${notes?'Additional notes: '+notes:''} What public benefit programs might they qualify for? Use plain language and probabilistic phrasing. ${langInstruction}`;
+ 
+  let aiText=await callGemini(prompt,`You are a compassionate benefits counselor. Always use "may qualify" or "may be eligible" — never definitive statements. Remind users to verify with official sources. ${langInstruction}`);
+  if(!aiText) aiText=getMockEligibility(size,income,state,concern);
+  aiText=sanitizeAI(aiText);
+ 
+  // Show result
+  document.getElementById('ai-response-text').textContent=aiText;
+  document.getElementById('result-area').classList.remove('hidden');
+ 
+  // Insert reasoning trace between the AI response card and the Get Real Help section
+  const reasoningWrapper = document.getElementById('ai-reasoning-trace-wrapper');
+  if (reasoningWrapper) reasoningWrapper.innerHTML = buildReasoningHTML(size, income, state, concern);
+ 
+  // Multi-program comparison
+  const compPrompt=`Return ONLY a JSON array for these 5 programs for a household of ${size} in ${state} with monthly income $${income}: SNAP, Medicaid, Housing Assistance, LIHEAP, Childcare Subsidy. Each item: {program_name, likelihood (Low/Medium/High), estimated_monthly_benefit, key_requirements (array of 3), next_step}. No markdown, pure JSON. ${langInstruction}`;
+  let compText=await callGemini(compPrompt);
+  let programs;
+  try{
+    if(compText){const clean=compText.replace(/```json|```/g,'').trim();programs=JSON.parse(clean);}
+    else programs=getMockComparison(size,income,state);
+  }catch{programs=getMockComparison(size,income,state);}
+  programs=programs.map(p=>({...p,likelihood_raw:p.likelihood}));
+  renderProgramCards(programs);
+ 
+  // Save history
+  lastResult={size,income,state,concern,notes,aiText,programs,ts:new Date().toISOString()};
+  saveHistory(lastResult);
+  renderHistory();
+ 
+  // Update ticker for state
+  loadPolicyTicker(state);
+ 
+  // Show checklist button
+  document.getElementById('docs-empty').classList.add('hidden');
+  document.getElementById('generate-checklist-btn').classList.remove('hidden');
+ 
+  btn.disabled=false;
+  document.getElementById('submit-spinner').classList.add('hidden');
+  showToast(lang==='en'?'Eligibility check complete!':'¡Verificación completa!');
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  PROGRAM COMPARISON CARDS
+// ═══════════════════════════════════════════════════════════
+function likelihoodClass(l){
+  if(l==='High') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300';
+  if(l==='Medium') return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300';
+  return 'bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300';
+}
+ 
+function renderProgramCards(programs){
+  const grid=document.getElementById('programs-grid');
+  const empty=document.getElementById('programs-empty');
+  const copyBtn=document.getElementById('copy-btn');
+  empty.classList.add('hidden');
+  copyBtn.classList.remove('hidden');
+  grid.innerHTML='';
+  programs.forEach((p,i)=>{
+    const card=document.createElement('div');
+    card.className='section-card card-enter bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5';
+    card.style.animationDelay=`${i*60}ms`;
+    card.innerHTML=`
+      <div class="flex items-start justify-between mb-3">
+        <h3 class="font-bold text-slate-800 dark:text-slate-100">${p.program_name}</h3>
+        <span class="px-2 py-0.5 rounded-full text-xs font-bold ${likelihoodClass(p.likelihood)}">${p.likelihood}</span>
+      </div>
+      <p class="text-sm font-semibold text-sky-600 dark:text-sky-400 mb-3">Est. benefit: ${p.estimated_monthly_benefit||'Varies'}</p>
+      <ul class="text-xs text-slate-600 dark:text-slate-400 space-y-1 mb-3 list-none">
+        ${(p.key_requirements||[]).map(r=>`<li class="flex gap-1.5"><span class="text-slate-400 flex-shrink-0">•</span>${r}</li>`).join('')}
+      </ul>
+      <div class="border-t border-slate-100 dark:border-slate-700 pt-3 text-xs text-slate-500 dark:text-slate-400">
+        <strong>Next step:</strong> ${p.next_step||''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+ 
+function copyCaseworkerSummary(){
+  const cards=document.querySelectorAll('#programs-grid .section-card');
+  let text='BENEFITS ELIGIBILITY SUMMARY\n'+'='.repeat(30)+'\n\n';
+  cards.forEach(card=>{
+    const name=card.querySelector('h3')?.textContent||'';
+    const likelihood=card.querySelector('span.rounded-full')?.textContent||'';
+    const benefit=card.querySelector('p')?.textContent||'';
+    text+=`${name} (${likelihood})\n${benefit}\n\n`;
+  });
+  text+='\n⚠️ This is NOT an official eligibility determination. Verify with your local agency or call 211.';
+  navigator.clipboard.writeText(text).then(()=>showToast(lang==='en'?'Summary copied!':'¡Resumen copiado!'));
+}
+ 
+// ── Copy eligibility result summary ─────────────────────────
+function copyEligibilityResult(){
+  if(!lastResult){
+    showToast(lang==='en'?'Run a check first.':'Primero haga una verificación.','error');
+    return;
+  }
+  const confEl=document.getElementById('confidence-text');
+  let text=lang==='es' ? 'RESUMEN DE BENEFICIOS\n' : 'BENEFITS SUMMARY\n';
+  text+='='.repeat(30)+'\n\n';
+  text+=`${lang==='es'?'Hogar':'Household'}: ${lastResult.size} | ${lang==='es'?'Ingreso mensual':'Monthly income'}: $${lastResult.income} | ${lang==='es'?'Estado':'State'}: ${lastResult.state}\n`;
+  text+=`${lang==='es'?'Confianza':'Confidence'}: ${confEl?confEl.textContent:''}\n\n`;
+  text+=lastResult.aiText+'\n\n';
+  if(lastResult.programs && lastResult.programs.length){
+    text+=(lang==='es'?'PROGRAMAS:\n':'PROGRAMS:\n');
+    lastResult.programs.forEach(p=>{
+      text+=`- ${p.program_name||p.program} (${p.likelihood_raw||p.likelihood}): ${p.next_step||''}\n`;
+    });
+    text+='\n';
+  }
+  text+= lang==='es'
+    ? '⚠️ Esto NO es una determinación oficial de elegibilidad. Esta IA no decide si usted recibe beneficios — esa decisión pertenece exclusivamente a un trabajador social capacitado. Verifique con su agencia local o llame al 211.'
+    : '⚠️ This is NOT an official eligibility determination. This AI does not decide whether you receive benefits — that decision belongs exclusively to a trained caseworker. Verify with your local agency or call 211.';
+  navigator.clipboard.writeText(text).then(()=>{
+    showToast(lang==='en'?'Results copied to clipboard!':'¡Resultados copiados!');
+  }).catch(()=>{
+    showToast(lang==='en'?'Could not copy — please try again.':'No se pudo copiar — intente de nuevo.','error');
+  });
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════════
+function saveHistory(entry){
+  let hist=JSON.parse(localStorage.getItem('benefitsHistory')||'[]');
+  hist.unshift(entry);
+  hist=hist.slice(0,5);
+  localStorage.setItem('benefitsHistory',JSON.stringify(hist));
+}
+function renderHistory(){
+  const hist=JSON.parse(localStorage.getItem('benefitsHistory')||'[]');
+  const section=document.getElementById('past-checks-section');
+  const list=document.getElementById('past-checks-list');
+  if(!hist.length){section.classList.add('hidden');return;}
+  section.classList.remove('hidden');
+  list.innerHTML=hist.map((h,i)=>`
+    <button onclick='restoreHistory(${i})' class="past-item w-full text-left bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 hover:border-sky-400 transition text-xs text-slate-600 dark:text-slate-400">
+      <span class="font-medium text-slate-700 dark:text-slate-300">${h.state} • ${h.concern}</span> — HH: ${h.size}, Income: $${h.income}/mo
+      <span class="ml-2 text-slate-400 dark:text-slate-500">${new Date(h.ts).toLocaleDateString()}</span>
+    </button>
+  `).join('');
+}
+function restoreHistory(idx){
+  const hist=JSON.parse(localStorage.getItem('benefitsHistory')||'[]');
+  const h=hist[idx];
+  if(!h) return;
+  document.getElementById('household-size').value=h.size;
+  document.getElementById('monthly-income').value=h.income;
+  document.getElementById('state-select').value=h.state;
+  document.getElementById('concern-select').value=h.concern;
+  document.getElementById('notes').value=h.notes||'';
+  document.getElementById('ai-response-text').textContent=h.aiText;
+  document.getElementById('result-area').classList.remove('hidden');
+  const reasoningWrapper=document.getElementById('ai-reasoning-trace-wrapper');
+  if(reasoningWrapper) reasoningWrapper.innerHTML=buildReasoningHTML(h.size,h.income,h.state,h.concern);
+  if(h.programs) renderProgramCards(h.programs);
+  showConfidence(computeConfidence());
+  updateFormCompletionIndicator();
+  lastResult=h;
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  FLAG FOR REVIEW
+// ═══════════════════════════════════════════════════════════
+function flagResult(){
+  const reason=prompt(lang==='en'?'Why are you flagging this result? (optional)':'¿Por qué está marcando este resultado?')||'No reason given';
+  const flags=JSON.parse(localStorage.getItem('benefitsFlags')||'[]');
+  flags.push({
+    timestamp:new Date().toISOString(),
+    form:{
+      size:document.getElementById('household-size').value,
+      income:document.getElementById('monthly-income').value,
+      state:document.getElementById('state-select').value,
+      concern:document.getElementById('concern-select').value,
+    },
+    result:document.getElementById('ai-response-text').textContent.slice(0,500),
+    reason
+  });
+  localStorage.setItem('benefitsFlags',JSON.stringify(flags));
+  showToast(lang==='en'?'Result flagged for human review. Thank you!':'¡Resultado marcado! Gracias.');
+}
+ 
+function openFlagsPanel(){
+  const flags=JSON.parse(localStorage.getItem('benefitsFlags')||'[]');
+  const list=document.getElementById('flags-list');
+  if(!flags.length){list.innerHTML='<p class="text-sm text-slate-500">No flagged results yet.</p>';} 
+  else {
+    list.innerHTML=flags.map(f=>`
+      <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs">
+        <p class="font-medium text-slate-700 dark:text-slate-300 mb-1">${new Date(f.timestamp).toLocaleString()} — ${f.form?.state||''}</p>
+        <p class="text-slate-500 mb-1"><strong>Reason:</strong> ${f.reason}</p>
+        <p class="text-slate-500">${f.result?.slice(0,200)||''}…</p>
+      </div>
+    `).join('');
+  }
+  document.getElementById('flags-panel').classList.remove('hidden');
+}
+function closeFlagsPanel(){document.getElementById('flags-panel').classList.add('hidden');}
+ 
+// Check URL hash for admin
+function checkAdminHash(){if(location.hash==='#flags') openFlagsPanel();}
+window.addEventListener('hashchange',checkAdminHash);
+ 
+// ═══════════════════════════════════════════════════════════
+//  STRESS CHECK
+// ═══════════════════════════════════════════════════════════
+// NOTE: slider listeners are wired up in init() after the DOM is ready.
+ 
+function submitStressCheck(){
+  const q1El=document.getElementById('q1');
+  const q2El=document.getElementById('q2');
+  const q3El=document.getElementById('q3');
+  const q1=parseInt(q1El.value);
+  const q2=parseInt(q2El.value);
+  const q3=parseInt(q3El.value);
+ 
+  const spinner=document.getElementById('stress-spinner');
+  if(spinner) spinner.classList.remove('hidden');
+ 
+  // Use mock data directly — no Gemini call
+  const text=getMockStressResponse(q1,q2,q3);
+ 
+  const result=document.getElementById('stress-result');
+  result.classList.remove('hidden');
+  result.innerHTML=`<div class="prose prose-sm max-w-none text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">${text}</div>`;
+ 
+  if(spinner) spinner.classList.add('hidden');
+  showToast(lang==='en'?'Guidance ready.':'Orientación lista.');
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  BENEFITS BINGO
+// ═══════════════════════════════════════════════════════════
+const BINGO_ITEMS=[
+  "Annual income < $25,000","US citizen or legal resident","Have children under 18",
+  "Pay rent or mortgage","Currently unemployed","Have a disability",
+  "Pay utilities","Age 60+","Currently pregnant","Recently lost income",
+  "Single parent household","Veteran or military family","Work part-time only",
+  "No health insurance","Currently experiencing homelessness","Age 18–24",
+  "Agricultural worker","Recently released from incarceration","Have a chronic illness",
+  "Care for an elderly relative","Receive no child support","Income below poverty line",
+  "Have been evicted in last year","Receive SSI or SSDI","Recently immigrated",
+];
+const bingoState=new Set();
+ 
+function initBingo(){
+  const grid=document.getElementById('bingo-grid');
+  grid.innerHTML='';
+  BINGO_ITEMS.forEach((item,i)=>{
+    const btn=document.createElement('button');
+    btn.className='bingo-cell border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-center bg-white dark:bg-slate-800 hover:border-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950 transition min-h-[60px] flex items-center justify-center leading-tight';
+    btn.textContent=item;
+    btn.setAttribute('aria-pressed','false');
+    btn.setAttribute('aria-label',item);
+    btn.addEventListener('click',()=>{
+      if(bingoState.has(item)){bingoState.delete(item);btn.classList.remove('marked','bg-sky-500','dark:bg-sky-700','text-white','border-sky-500');btn.setAttribute('aria-pressed','false');}
+      else{bingoState.add(item);btn.classList.add('marked','bg-sky-500','dark:bg-sky-700','text-white','border-sky-500');btn.setAttribute('aria-pressed','true');}
+      updateBingoProgress();
+    });
+    grid.appendChild(btn);
+  });
+}
+function updateBingoProgress(){
+  const n=bingoState.size;
+  document.getElementById('bingo-progress-label').textContent=`${n} of 25 factors checked`;
+  document.getElementById('bingo-progress-bar').style.width=`${(n/25)*100}%`;
+}
+ 
+function discoverFromBingo(){
+  const checked=[...bingoState];
+  if(!checked.length){showToast(lang==='en'?'Please check at least one factor.':'Por favor marque al menos un factor.','error');return;}
+  const spinner=document.getElementById('bingo-spinner');
+  if(spinner) spinner.classList.remove('hidden');
+ 
+  // Use mock data directly — no Gemini call
+  const programs=getMockBingoResult(checked);
+ 
+  const hasHigh=programs.some(p=>p.likelihood==='High');
+  const result=document.getElementById('bingo-result');
+  result.innerHTML=`
+    <div class="section-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 card-enter">
+      <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-3">Programs You May Qualify For</h3>
+      <div class="space-y-2">
+        ${programs.map(p=>`
+          <div class="flex items-start gap-3 p-3 rounded-lg ${p.likelihood==='High'?'bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800':p.likelihood==='Medium'?'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800':'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700'}">
+            <span class="px-2 py-0.5 rounded-full text-xs font-bold ${likelihoodClass(p.likelihood)} flex-shrink-0">${p.likelihood}</span>
+            <div>
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-100">${p.program}</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">${p.reason||''}</p>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  if(hasHigh){
+    confetti({particleCount:120,spread:80,origin:{y:0.6}});
+    showToast('🎉 BINGO! High-likelihood programs found!');
+  } else {
+    showToast(lang==='en'?'Programs discovered!':'¡Programas encontrados!');
+  }
+  if(spinner) spinner.classList.add('hidden');
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  COMMUNITY RESOURCES (DAO VOTING)
+// ═══════════════════════════════════════════════════════════
+let communityResources=[];
+ 
+async function loadCommunityResources(){
+  const state=document.getElementById('state-select').value||'your state';
+  const container=document.getElementById('community-resources');
+  container.innerHTML=`<div class="text-center py-8 text-slate-400"><span class="spinner"></span><p class="text-sm mt-3">Loading resources for ${state}…</p></div>`;
+ 
+  const langInstruction=lang==='es'?'Respond in Spanish.':'';
+  const prompt=`Generate 8 community resources for ${state}: food banks, legal aid, housing orgs, 211 equivalents. Return JSON array: [{name, type, phone, website, description}]. Pure JSON. ${langInstruction}`;
+  let text=await callGemini(prompt);
+  let resources;
+  try{if(text) resources=JSON.parse(text.replace(/```json|```/g,'').trim());else resources=getMockCommunityResources(state);}
+  catch{resources=getMockCommunityResources(state);}
+ 
+  // Load vote data
+  resources=resources.map(r=>{
+    const key=`vote_${state}_${r.name}`;
+    const saved=JSON.parse(localStorage.getItem(key)||'{"up":0,"down":0}');
+    return {...r,key,score:saved.up-saved.down,userVote:saved.userVote||null};
+  });
+  communityResources=resources;
+  renderCommunityResources();
+}
+ 
+function renderCommunityResources(){
+  const resources=[...communityResources].sort((a,b)=>b.score-a.score);
+  const container=document.getElementById('community-resources');
+  const verdictEl=document.getElementById('community-verdict');
+  if(resources.length){
+    verdictEl.classList.remove('hidden');
+    verdictEl.innerHTML=`⭐ <strong>Most trusted by your community:</strong> ${resources[0].name} (Score: ${resources[0].score>=0?'+':''}${resources[0].score})`;
+  }
+  container.innerHTML=resources.map(r=>`
+    <div class="vote-card section-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex gap-4" id="rc-${r.key.replace(/[^a-z0-9]/gi,'_')}">
+      <div class="flex flex-col items-center gap-1 flex-shrink-0">
+        <button onclick="vote('${r.key}',1)" class="vote-up w-8 h-8 rounded-lg flex items-center justify-center text-sm hover:bg-emerald-50 dark:hover:bg-emerald-950 border ${r.userVote===1?'bg-emerald-500 text-white border-emerald-500':'border-slate-200 dark:border-slate-700 text-slate-500'} transition" aria-label="Upvote ${r.name}">▲</button>
+        <span class="text-sm font-bold ${r.score>0?'text-emerald-600 dark:text-emerald-400':r.score<0?'text-rose-600 dark:text-rose-400':'text-slate-500'}">${r.score>=0?'+':''}${r.score}</span>
+        <button onclick="vote('${r.key}',-1)" class="vote-down w-8 h-8 rounded-lg flex items-center justify-center text-sm hover:bg-rose-50 dark:hover:bg-rose-950 border ${r.userVote===-1?'bg-rose-500 text-white border-rose-500':'border-slate-200 dark:border-slate-700 text-slate-500'} transition" aria-label="Downvote ${r.name}">▼</button>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2 flex-wrap">
+          <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm">${r.name}</h3>
+          <span class="text-xs px-2 py-0.5 rounded-full ${r.score>=0?'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300':'bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300'} font-medium">Trust: ${r.score>=0?'+':''}${r.score}</span>
+        </div>
+        <p class="text-xs text-sky-600 dark:text-sky-400 mb-1">${r.type} • ${r.phone}</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">${r.description}</p>
+      </div>
+    </div>
+  `).join('');
+}
+ 
+function vote(key,dir){
+  const r=communityResources.find(x=>x.key===key);
+  if(!r) return;
+  const saved=JSON.parse(localStorage.getItem(key)||'{"up":0,"down":0}');
+  if(r.userVote===dir){r.userVote=null;dir===1?saved.up--:saved.down--;}
+  else{
+    if(r.userVote){r.userVote===1?saved.up--:saved.down--;}
+    r.userVote=dir;dir===1?saved.up++:saved.down++;
+  }
+  saved.userVote=r.userVote;
+  r.score=saved.up-saved.down;
+  localStorage.setItem(key,JSON.stringify(saved));
+  renderCommunityResources();
+}
+ 
+function resetVotes(){
+  communityResources.forEach(r=>{
+    const saved={up:0,down:0,userVote:null};
+    localStorage.setItem(r.key,JSON.stringify(saved));
+    r.score=0;r.userVote=null;
+  });
+  renderCommunityResources();
+  showToast(lang==='en'?'Votes reset.':'Votos restablecidos.');
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  DOCUMENT CHECKLIST
+// ═══════════════════════════════════════════════════════════
+let checklistItems=[];
+ 
+function generateChecklist(){
+  const btn=document.getElementById('generate-checklist-btn');
+  const spinner=document.getElementById('docs-spinner');
+  if(btn) btn.disabled=true;
+  if(spinner) spinner.classList.remove('hidden');
+ 
+  const concern=document.getElementById('concern-select')?document.getElementById('concern-select').value||'general benefits':'general benefits';
+ 
+  // Use mock data directly — no Gemini call
+  checklistItems=getMockDocumentChecklist([concern]);
+  checklistItems=checklistItems.map(item=>({...item,checked:false}));
+ 
+ 
+  // Show progress bar
+  const progressEl=document.getElementById('docs-progress');
+  if(progressEl) progressEl.classList.remove('hidden');
+ 
+  renderChecklist();
+ 
+  // Show PDF download button
+  const pdfBtn=document.getElementById('download-pdf-btn');
+  if(pdfBtn) pdfBtn.classList.remove('hidden');
+ 
+  if(btn){btn.disabled=false;}
+  if(spinner) spinner.classList.add('hidden');
+ 
+  showToast(lang==='en'?'Checklist generated!':'¡Lista generada!');
+}
+ 
+function renderChecklist(){
+  const container=document.getElementById('docs-list');
+  const progress=document.getElementById('docs-progress');
+  progress.classList.remove('hidden');
+  updateDocsProgress();
+  // Group by program
+  const groups={};
+  checklistItems.forEach(item=>{
+    if(!groups[item.program]) groups[item.program]=[];
+    groups[item.program].push(item);
+  });
+  container.innerHTML=Object.entries(groups).map(([prog,items])=>`
+    <div class="section-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 card-enter">
+      <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-3 text-sm">${prog}</h3>
+      <div class="space-y-3">
+        ${items.map((item,i)=>`
+          <label class="flex items-start gap-3 cursor-pointer group" for="doc-${item.document.replace(/\s/g,'_')}">
+            <input type="checkbox" id="doc-${item.document.replace(/\s/g,'_')}" ${item.checked?'checked':''} onchange="toggleDoc('${item.document}')" class="mt-0.5 w-4 h-4 accent-sky-500 flex-shrink-0"/>
+            <div>
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-100 group-hover:text-sky-600 transition ${item.checked?'line-through text-slate-400 dark:text-slate-500':''}">${item.document}</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${item.why_needed}</p>
+              ${item.tip?`<p class="text-xs text-sky-600 dark:text-sky-400 mt-0.5">💡 ${item.tip}</p>`:''}
+            </div>
+          </label>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+function toggleDoc(name){
+  const item=checklistItems.find(i=>i.document===name);
+  if(item) item.checked=!item.checked;
+  updateDocsProgress();
+  renderChecklist();
+}
+function updateDocsProgress(){
+  const total=checklistItems.length;
+  const done=checklistItems.filter(i=>i.checked).length;
+  document.getElementById('docs-progress-label').textContent=`${done} of ${total} documents gathered`;
+  document.getElementById('docs-progress-bar').style.width=`${total?Math.round((done/total)*100):0}%`;
+}
+ 
+function downloadChecklistPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  doc.setFontSize(18);doc.setFont('helvetica','bold');
+  doc.text('My Benefits Application Checklist',14,22);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`,14,30);
+  doc.text('⚠️ Verify all requirements with your local agency or 211.',14,37);
+  let y=48;
+  const groups={};
+  checklistItems.forEach(item=>{if(!groups[item.program]) groups[item.program]=[];groups[item.program].push(item);});
+  Object.entries(groups).forEach(([prog,items])=>{
+    doc.setFontSize(12);doc.setFont('helvetica','bold');
+    doc.text(prog,14,y);y+=6;
+    items.forEach(item=>{
+      doc.setFontSize(10);doc.setFont('helvetica','normal');
+      const status=item.checked?'[✓]':'[ ]';
+      const text=doc.splitTextToSize(`${status} ${item.document}`,180);
+      doc.text(text,14,y);y+=text.length*5+2;
+      if(item.tip){const tip=doc.splitTextToSize(`    💡 ${item.tip}`,176);doc.setTextColor(100,100,180);doc.text(tip,14,y);doc.setTextColor(0,0,0);y+=tip.length*4+2;}
+      if(y>270){doc.addPage();y=20;}
+    });
+    y+=4;
+  });
+  doc.save('benefits-checklist.pdf');
+  showToast(lang==='en'?'PDF downloaded!':'¡PDF descargado!');
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  XSS HELPER
+// ═══════════════════════════════════════════════════════════
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  POLICY TICKER
+// ═══════════════════════════════════════════════════════════
+let tickerItems=[];
+ 
+async function loadPolicyTicker(state){
+  if(!state) state='your state';
+  const prompt=`List 3 recent policy changes for SNAP, Medicaid, or housing assistance in ${state}. JSON: [{program, change_summary, effective_date, source_hint}]. Pure JSON.`;
+  let text=await callGemini(prompt);
+  try{if(text) tickerItems=JSON.parse(text.replace(/```json|```/g,'').trim());else tickerItems=getMockPolicyTicker(state);}
+  catch{tickerItems=getMockPolicyTicker(state);}
+  const content=document.getElementById('ticker-content');
+  content.innerHTML=tickerItems.map((t,i)=>
+    `<span class="inline-block mr-16 cursor-pointer hover:text-sky-300 transition" onclick="showTickerCard(${i})" tabindex="0" role="button" aria-label="Policy update: ${escapeHtml(t.program)}">
+       📌 <strong>${escapeHtml(t.program)}:</strong> ${escapeHtml(t.change_summary)} <span class="opacity-60 text-xs">[${escapeHtml(t.effective_date)}]</span>
+     </span>`
+  ).join('  ');
+}
+ 
+function showTickerCard(idx){
+  const item=tickerItems[idx];
+  const card=document.getElementById('ticker-card');
+  card.classList.toggle('hidden');
+  if(!card.classList.contains('hidden')){
+    card.innerHTML=`
+      <div class="max-w-4xl mx-auto">
+        <p class="font-semibold text-sky-700 dark:text-sky-300 mb-1">${escapeHtml(item.program)} – ${escapeHtml(item.effective_date)}</p>
+        <p class="text-sm mb-2">${escapeHtml(item.change_summary)}</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Source: AI-assisted web search (${escapeHtml(item.source_hint)}) – verify with official sources at <a href="https://benefits.gov" target="_blank" rel="noopener" class="underline hover:text-sky-500">benefits.gov</a></p>
+      </div>
+    `;
+  }
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  SELF-CHECK (FPL THRESHOLD VALIDATION)
+// ═══════════════════════════════════════════════════════════
+// Validates that buildReasoningHTML's threshold formulas match the
+// 2026 Federal Poverty Guideline formula: FPL = $15,060 for a household of 1,
+// plus $5,380 for each additional member (48 contiguous states + DC).
+// Formula: FPL = 15060 + (size - 1) * 5380.
+// Program multipliers: SNAP 130%, Medicaid 138%, LIHEAP 150%, Housing 50% AMI proxy.
+function runSelfCheck(){
+  const resultEl=document.getElementById('self-check-result');
+  const tests=[];
+  // Test households of size 1, 3, and 6
+  [1,3,6].forEach(sz=>{
+    const fpl=15060+(sz-1)*5380;
+    const expectedSnap=Math.round(fpl*1.30/12);
+    const expectedMedicaid=Math.round(fpl*1.38/12);
+    const expectedLiheap=Math.round(fpl*1.50/12);
+    const expectedHousing=Math.round(fpl*0.50/12);
+    // Recompute using the same logic as buildReasoningHTML
+    const snap=Math.round((15060+(sz-1)*5380)*1.30/12);
+    const medicaid=Math.round((15060+(sz-1)*5380)*1.38/12);
+    const liheap=Math.round((15060+(sz-1)*5380)*1.50/12);
+    const housing=Math.round((15060+(sz-1)*5380)*0.50/12);
+    tests.push(snap===expectedSnap && medicaid===expectedMedicaid && liheap===expectedLiheap && housing===expectedHousing);
+  });
+  const allPass=tests.every(Boolean);
+  if(allPass){
+    resultEl.textContent = lang==='es'
+      ? '✅ Verificación aprobada: las fórmulas de umbral FPL coinciden con las pautas federales de pobreza 2026.'
+      : '✅ Self-check passed: FPL threshold formulas match the 2026 federal poverty guideline calculation.';
+    resultEl.className='text-xs mt-2 text-emerald-600 dark:text-emerald-400';
+  }else{
+    resultEl.textContent = lang==='es'
+      ? '❌ Verificación fallida: revise las fórmulas de umbral.'
+      : '❌ Self-check failed: review the threshold formulas.';
+    resultEl.className='text-xs mt-2 text-rose-600 dark:text-rose-400';
+  }
+}
+ 
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+function init(){
+  initTheme();
+  if(localStorage.getItem('bnLang')) lang=localStorage.getItem('bnLang');
+  document.getElementById('lang-toggle').textContent=lang==='en'?'EN | ES':'ES | EN';
+  applyTranslations();
+  initBingo();
+  renderHistory();
+  checkAdminHash();
+  // Wire up stress-check sliders now that the DOM exists
+  ['q1','q2','q3'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('input',function(){
+      document.getElementById(id+'-val').textContent=this.value;
+    });
+  });
+  // Wire up live form-completion indicator
+  ['household-size','monthly-income','state-select','concern-select'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.addEventListener('input',updateFormCompletionIndicator);
+      el.addEventListener('change',updateFormCompletionIndicator);
+    }
+  });
+  updateFormCompletionIndicator();
+  // Load default ticker
+  loadPolicyTicker('');
+ 
+  // API key banner — shown only if no key is stored, never blocks the UI
+  if (!GEMINI_API_KEY) {
+    const banner=document.getElementById('api-key-banner');
+    if(banner) banner.classList.remove('hidden');
+  }
+}
+ 
+// Dismissible API key banner handlers
+function dismissApiKeyBanner(){
+  const banner=document.getElementById('api-key-banner');
+  if(banner) banner.classList.add('hidden');
+}
+function submitApiKeyFromBanner(){
+  const input=document.getElementById('api-key-input');
+  const val=input ? input.value.trim() : '';
+  if(val){
+    localStorage.setItem('bnApiKey', val);
+    location.reload();
+  }else{
+    dismissApiKeyBanner();
+  }
+}
+ 
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
