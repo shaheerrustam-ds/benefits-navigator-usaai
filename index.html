@@ -91,6 +91,7 @@ html{scroll-behavior:smooth;}
     </div>
     <div class="flex items-center gap-2 flex-wrap">
       <button id="lang-toggle" onclick="toggleLang()" class="text-xs font-bold border border-slate-300 dark:border-slate-600 rounded px-2 py-1 hover:bg-sky-50 dark:hover:bg-slate-700 transition" aria-label="Toggle language" title="Disponible en Español / Available in English">EN | ES</button>
+      <button onclick="openPrivacyModal()" class="text-xs font-bold border border-slate-300 dark:border-slate-600 rounded px-2 py-1 hover:bg-sky-50 dark:hover:bg-slate-700 transition" aria-label="Privacy info" data-i18n="btn_privacy">ℹ️ Privacy</button>
       <button id="theme-toggle" onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-full border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition text-lg" aria-label="Toggle dark/light theme">🌙</button>
     </div>
   </div>
@@ -382,11 +383,58 @@ html{scroll-behavior:smooth;}
   </div>
 </div>
  
+<!-- PRIVACY MODAL -->
+<div id="privacy-modal" class="hidden fixed inset-0 bg-black/60 z-50 overflow-auto p-8" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title">
+  <div class="max-w-lg mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 id="privacy-modal-title" class="text-lg font-bold text-slate-800 dark:text-slate-100" data-i18n="privacy_title">ℹ️ About &amp; Privacy</h2>
+      <button onclick="closePrivacyModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl leading-none" aria-label="Close privacy modal">×</button>
+    </div>
+    <div class="space-y-4 text-sm text-slate-700 dark:text-slate-300">
+      <div class="flex gap-3 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
+        <span class="text-emerald-500 flex-shrink-0 text-lg">🔒</span>
+        <div>
+          <p class="font-semibold text-emerald-800 dark:text-emerald-200 mb-1" data-i18n="privacy_local_title">Your data stays in your browser</p>
+          <p class="text-xs text-emerald-700 dark:text-emerald-300" data-i18n="privacy_local_text">No information you enter is sent to any server. Everything — your eligibility check history, language preference, and theme — is saved locally in your browser's localStorage only.</p>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <span class="text-sky-500 flex-shrink-0 text-lg">🚫</span>
+        <div>
+          <p class="font-semibold text-slate-800 dark:text-slate-100 mb-1" data-i18n="privacy_tracking_title">No tracking or analytics</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="privacy_tracking_text">This app does not use cookies, analytics, or any third-party tracking. No usage data is collected or transmitted.</p>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <span class="text-amber-500 flex-shrink-0 text-lg">🔑</span>
+        <div>
+          <p class="font-semibold text-slate-800 dark:text-slate-100 mb-1" data-i18n="privacy_apikey_title">Optional API key</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="privacy_apikey_text">If you choose to add a Gemini API key, it is stored only in your browser's localStorage and used exclusively for direct browser-to-Gemini API calls. It is never transmitted to any intermediate server.</p>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <span class="text-slate-400 flex-shrink-0 text-lg">🗑️</span>
+        <div>
+          <p class="font-semibold text-slate-800 dark:text-slate-100 mb-1" data-i18n="privacy_clear_title">Clear your data any time</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="privacy_clear_text">You can clear all locally stored data at any time by clearing your browser's localStorage or site data in your browser settings.</p>
+        </div>
+      </div>
+    </div>
+    <button onclick="closePrivacyModal()" class="mt-5 w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 rounded-lg transition text-sm" data-i18n="privacy_close">Close</button>
+  </div>
+</div>
+ 
 <!-- FOOTER -->
 <footer class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-8 py-6 px-4 text-center">
   <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Benefits Navigator • USAII Global AI Hackathon 2026 • Undergraduate Track – Challenge 4</p>
   <p class="text-xs text-slate-400 dark:text-slate-500 mb-3">This tool aims to meet <strong>WCAG 2.1 AA</strong> accessibility standards. To report accessibility issues, email <a href="mailto:accessibility@example.com" class="underline hover:text-sky-500">accessibility@example.com</a>.</p>
-  <button onclick="runSelfCheck()" class="text-xs border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg transition" data-i18n="btn_self_check">🔧 Run self-check (verify FPL math)</button>
+  <div class="flex items-center justify-center gap-3 flex-wrap">
+    <button onclick="runSelfCheck()" class="text-xs border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg transition" data-i18n="btn_self_check">🔧 Run self-check (verify FPL math)</button>
+    <button onclick="openFlagsPanel()" class="text-xs border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5" aria-label="View flagged results" data-i18n="btn_view_flags">
+      🚩 <span data-i18n="btn_view_flags_text">View flagged results</span>
+      <span id="flag-count-badge" class="hidden bg-rose-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none ml-0.5" aria-label="flagged count"></span>
+    </button>
+  </div>
   <p id="self-check-result" class="text-xs mt-2" role="status" aria-live="polite"></p>
 </footer>
  
@@ -483,6 +531,19 @@ const T = {
     rai_risk:"<strong>Risk:</strong> An incorrect eligibility suggestion may cause false hope or missed benefits.",
     rai_mitigation:"<strong>Mitigation:</strong> Human-review flag + 211 referral + all language uses \"you may qualify\" — never a guarantee.",
     rai_human:"<strong>Human decision:</strong> A trained caseworker at your local agency — not this AI — decides final eligibility.",
+    btn_view_flags:"🚩 View flagged results",
+    btn_view_flags_text:"View flagged results",
+    btn_privacy:"ℹ️ Privacy",
+    privacy_title:"ℹ️ About & Privacy",
+    privacy_local_title:"Your data stays in your browser",
+    privacy_local_text:"No information you enter is sent to any server. Everything — your eligibility check history, language preference, and theme — is saved locally in your browser's localStorage only.",
+    privacy_tracking_title:"No tracking or analytics",
+    privacy_tracking_text:"This app does not use cookies, analytics, or any third-party tracking. No usage data is collected or transmitted.",
+    privacy_apikey_title:"Optional API key",
+    privacy_apikey_text:"If you choose to add a Gemini API key, it is stored only in your browser's localStorage and used exclusively for direct browser-to-Gemini API calls. It is never transmitted to any intermediate server.",
+    privacy_clear_title:"Clear your data any time",
+    privacy_clear_text:"You can clear all locally stored data at any time by clearing your browser's localStorage or site data in your browser settings.",
+    privacy_close:"Close",
   },
   es:{
     tab_checker:"Verificar Beneficios", tab_programs:"Comparación de Programas",
@@ -546,6 +607,19 @@ const T = {
     rai_risk:"<strong>Riesgo:</strong> Una sugerencia incorrecta de elegibilidad puede generar falsas esperanzas o beneficios perdidos.",
     rai_mitigation:"<strong>Mitigación:</strong> Marcado para revisión humana + referencia al 211 + el lenguaje siempre usa \"podría calificar\" — nunca una garantía.",
     rai_human:"<strong>Decisión humana:</strong> Un trabajador social capacitado en su agencia local — no esta IA — decide la elegibilidad final.",
+    btn_view_flags:"🚩 Ver resultados marcados",
+    btn_view_flags_text:"Ver resultados marcados",
+    btn_privacy:"ℹ️ Privacidad",
+    privacy_title:"ℹ️ Acerca de y Privacidad",
+    privacy_local_title:"Sus datos permanecen en su navegador",
+    privacy_local_text:"Ninguna información que ingrese se envía a ningún servidor. Todo — su historial, preferencia de idioma y tema — se guarda localmente en el localStorage de su navegador.",
+    privacy_tracking_title:"Sin rastreo ni análisis",
+    privacy_tracking_text:"Esta aplicación no utiliza cookies, análisis ni rastreo de terceros. No se recopilan ni transmiten datos de uso.",
+    privacy_apikey_title:"Clave API opcional",
+    privacy_apikey_text:"Si elige agregar una clave API de Gemini, se almacena solo en el localStorage de su navegador y se usa exclusivamente para llamadas directas del navegador a Gemini. Nunca se transmite a ningún servidor intermediario.",
+    privacy_clear_title:"Borre sus datos en cualquier momento",
+    privacy_clear_text:"Puede borrar todos los datos almacenados localmente en cualquier momento borrando el localStorage o los datos del sitio de su navegador en la configuración.",
+    privacy_close:"Cerrar",
   }
 };
  
@@ -1208,6 +1282,7 @@ function flagResult(){
     reason
   });
   localStorage.setItem('benefitsFlags',JSON.stringify(flags));
+  updateFlagCount();
   showToast(lang==='en'?'Result flagged for human review. Thank you!':'¡Resultado marcado! Gracias.');
 }
  
@@ -1227,6 +1302,37 @@ function openFlagsPanel(){
   document.getElementById('flags-panel').classList.remove('hidden');
 }
 function closeFlagsPanel(){document.getElementById('flags-panel').classList.add('hidden');}
+ 
+// ── Privacy Modal ───────────────────────────────────────────
+function openPrivacyModal(){
+  document.getElementById('privacy-modal').classList.remove('hidden');
+  document.getElementById('privacy-modal').querySelector('button[onclick="closePrivacyModal()"]').focus();
+}
+function closePrivacyModal(){document.getElementById('privacy-modal').classList.add('hidden');}
+// Close modals on backdrop click
+document.addEventListener('click',function(e){
+  const privModal=document.getElementById('privacy-modal');
+  if(e.target===privModal) closePrivacyModal();
+  const flagsPanel=document.getElementById('flags-panel');
+  if(e.target===flagsPanel) closeFlagsPanel();
+});
+// Close modals on Escape key
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    closePrivacyModal();
+    closeFlagsPanel();
+  }
+});
+ 
+// ── Flag count badge ─────────────────────────────────────────
+function updateFlagCount(){
+  const flags=JSON.parse(localStorage.getItem('benefitsFlags')||'[]');
+  const badge=document.getElementById('flag-count-badge');
+  if(badge){
+    badge.textContent=flags.length;
+    badge.classList.toggle('hidden',flags.length===0);
+  }
+}
  
 // Check URL hash for admin
 function checkAdminHash(){if(location.hash==='#flags') openFlagsPanel();}
@@ -1630,6 +1736,8 @@ function init(){
   updateFormCompletionIndicator();
   // Load default ticker
   loadPolicyTicker('');
+  // Update flag count badge
+  updateFlagCount();
  
   // API key banner — shown only if no key is stored, never blocks the UI
   if (!GEMINI_API_KEY) {
